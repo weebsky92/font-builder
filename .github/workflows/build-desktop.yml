@@ -42,10 +42,6 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install Linux system dependencies
-        if: runner.os == 'Linux'
-        run: echo "Linux desktop build is not part of this matrix."
-
       - name: Install engine dependencies
         shell: bash
         run: |
@@ -85,8 +81,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: font-builder-${{ runner.os }}
-          path: |
-            desktop/src-tauri/target/release/bundle/**
+          path: desktop/src-tauri/target/release/bundle/**
           if-no-files-found: error
 
   source:

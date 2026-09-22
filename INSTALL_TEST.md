@@ -1,21 +1,18 @@
-# Install / test — 0.1.0-alpha.1
+# Install / test - 0.1.0-alpha.2
 
-## Engine test
+## Engine
 
 ```bash
 cd engine
 python -m venv .venv
-# macOS/Linux
 source .venv/bin/activate
-# Windows PowerShell
-# .venv\\Scripts\\Activate.ps1
-
+# Windows PowerShell: .venv\Scripts\Activate.ps1
 pip install -e .
 fontbuilder-engine analyze /path/to/font-pack.zip
 fontbuilder-engine build /path/to/font-pack.zip -o ./output
 ```
 
-Expected output directory per family contains:
+Expected output per family:
 - `*-Variable.ttf`
 - `*-Variable.otf`
 - `*-Variable.woff`
@@ -24,21 +21,18 @@ Expected output directory per family contains:
 - `build-report.json`
 - `*-Variable-Pack.zip`
 
-## Desktop dev
+## Desktop development
 
-Requires Node.js + Rust toolchain + platform Tauri prerequisites.
+Requires Node.js, Rust and Tauri platform prerequisites.
 
 ```bash
 cd desktop
 npm install
-```
-
-Prepare the Python engine command and point `FONTBUILDER_ENGINE_DEV` to it, then:
-
-```bash
 npm run tauri dev
 ```
 
-## Production packaging
+For development, set `FONTBUILDER_ENGINE_DEV` to an executable or wrapper that starts the local engine.
 
-Not yet certified in Alpha 1. Production builds require platform-local packaging, signing and macOS notarization.
+## CI
+
+GitHub Actions builds macOS and Windows bundles from `.github/workflows/build-desktop.yml`.

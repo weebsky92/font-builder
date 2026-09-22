@@ -1,37 +1,26 @@
-# Font Builder — Project
+# Font Builder - Project
 
-**Status:** independent open-source product / reusable engine
-**Working name:** `Font Builder` (NOT approved as final product name)
-**Version:** `0.1.0-alpha.2`
-**Base version:** `0.1.0-alpha.1`
-**Date:** `2026-09-22`
-**License:** MIT
-**Repository:** `weebsky92/font-builder`
+Version: `0.1.0-alpha.2`
+License: MIT
+Repository: `weebsky92/font-builder`
 
-## 1. Scope
+## Scope
 
-Local cross-platform application for analyzing static font families and building variable-font packages.
+Local cross-platform app and reusable engine for analyzing static font families and building Variable Font packages.
 
-Target platforms:
+Targets:
 - macOS
 - Windows
 
-No cloud AI is required for normal operation. Font processing remains local.
+Font processing is local. Runtime AI is not required.
 
-## 2. Project boundary
+## Input
 
-This is an independent product. It is not currently a WEEBSKY OS module and must not be merged into WEEBSKY OS scope without a later explicit decision.
-
-The reusable engine is intentionally UI-independent so it can later be embedded in a larger application.
-
-## 3. Input
-
-Supported ingestion:
 - individual font files
 - multiple font files
 - directories
 - ZIP archives
-- nested ZIP archives up to configured depth
+- nested ZIP archives within configured safety limits
 
 Recognized font containers:
 - TTF
@@ -39,147 +28,51 @@ Recognized font containers:
 - WOFF
 - WOFF2
 
-Ignored automatically:
-- README*
-- LICENSE* / LICENCE*
-- CHANGELOG*
-- NOTICE*
-- OFL*
-- `.DS_Store`
-- `Thumbs.db`
-- `__MACOSX`
-- unsupported images/docs/other files
+README, license files, system metadata, images and unsupported documents are ignored automatically.
 
-ZIP safety:
-- zip-slip/path traversal protection
-- symlink entries skipped
-- maximum entry count
-- maximum total unpacked size
-- isolated temporary extraction directory
+## Build modes
 
-## 4. Analysis
+`TRUE VARIABLE` is used when masters are interpolation-compatible.
 
-The engine reads real OpenType metadata and determines:
-- normalized family
-- subfamily
-- PostScript name
-- canonical weight
-- italic/roman
-- outline type
-- glyph count
-- units per em
-- glyph-order compatibility
-- glyph topology compatibility
+`DISCRETE VARIABLE` preserves the supplied source outlines and switches between masters with OpenType FeatureVariations when topology differs.
 
-Canonical named weights are normalized to standard CSS/OpenType values 100–900 even if a static source has a nonstandard `OS/2 usWeightClass`.
+`AUTO` selects the safest available mode.
 
-## 5. Build modes
+## Output
 
-### TRUE VARIABLE
-Used when masters are interpolation-compatible.
-
-### DISCRETE VARIABLE
-Used when master topology differs. Preserves supplied source outlines and switches masters using OpenType `fvar`, `STAT` and `GSUB FeatureVariations`.
-
-AUTO selects the safest mode and can fall back from TRUE to DISCRETE if varLib compilation fails.
-
-## 6. Output
-
-Current target outputs:
-- TTF variable font
-- OTF with real CFF outlines
+- Variable TTF
+- CFF OTF
 - WOFF
 - WOFF2
-- CSS `@font-face`
+- CSS
 - JSON build report
 - ZIP package
 
-OTF is a real CFF OpenType export, not a renamed TTF.
+## Architecture
 
-## 7. Architecture
+`engine/` contains the reusable Python + FontTools engine and JSON CLI.
 
-`engine/`
-- reusable Python package
-- stable JSON CLI contract
-- no desktop UI dependency
+`desktop/` contains the Tauri 2 shell for macOS and Windows.
 
-`desktop/`
-- Tauri 2 shell
-- drag & drop
-- native file/ZIP picker
-- calls engine through a local sidecar executable
+The engine does not depend on the desktop UI so it can be reused by another application later.
 
-This boundary is the integration contract for the future larger application.
+## Current limitations
 
-## 8. Open-source stack
+- Variable builds currently require TrueType `glyf` source masters.
+- CFF/CFF2/OTF sources are detected and analyzed, but variable compilation from CFF/CFF2 source masters is not enabled yet.
+- Discrete builds currently require the same glyph set across masters.
+- Production code signing and Apple notarization are not configured yet.
 
-Selected stack:
-- Tauri — MIT OR Apache-2.0
-- FontTools — MIT
-- Brotli — MIT
-- Vite — MIT
-- Python — PSF License
-- Font Builder project — MIT
+## Verified test
 
-No proprietary font-processing SDK is required.
+The engine has been tested end-to-end with an 18-master Barlow Condensed ZIP containing Roman and Italic weights 100-900 plus ignored metadata files.
 
-## 9. Alpha 2 known limitations
+The test produced and reopened TTF, CFF OTF, WOFF and WOFF2 outputs successfully.
 
-- Variable builds currently require TrueType (`glyf`) source masters.
-- CFF/CFF2/OTF source files are detected and analyzed but source-master variable compilation is not enabled yet.
-- Discrete build currently requires the same glyph set across all masters; a future normalization pass will support differing glyph sets safely.
-- macOS and Windows production signing/notarization are later production work.
-- UI localization architecture is planned; current desktop prototype is Polish-first while the public README is PL + EN.
-
-## 10. Verified engine runtime test
-
-Test input:
-- 18 Barlow Condensed TTF masters
-- Roman + Italic
-- weights 100–900
-- packed inside ZIP with README and `.DS_Store`
-
-Result:
-- ZIP unpacked safely
-- README and `.DS_Store` ignored
-- one font family detected
-- discrete mode selected from topology audit
-- `wght 100–900`
-- `ital 0–1`
-- 18 named instances
-- TTF reopened successfully
-- CFF OTF reopened successfully
-- WOFF reopened successfully
-- WOFF2 reopened successfully
-- FeatureVariations present
-
-## 11. GitHub / CI checkpoint
-
-Repository:
-- `weebsky92/font-builder`
-- public
-- MIT licensed
-
-CI:
-- manual `workflow_dispatch`
-- tag-triggered builds (`v*`)
-- macOS runner
-- Windows runner
-- Python engine tests
-- Nuitka local sidecar packaging
-- Tauri native desktop bundle
-- build artifacts uploaded to GitHub Actions
-- source ZIP artifact generated by CI
-
-## 12. Next checkpoint
+## Next checkpoint
 
 `0.1.0-alpha.3`
 
-Primary next step:
-- run and verify the first real GitHub Actions build on both macOS and Windows
-- fix any platform-specific Tauri/sidecar packaging issues discovered by CI
-
-Secondary:
-- add PL / EN localization layer to desktop UI
-- normalize differing glyph sets (Ubuntu-type input case)
-- enable CFF/CFF2 source-master builds
+- first GitHub Actions build on macOS and Windows
+- fix platform-specific sidecar or packaging issues if CI finds any
+- start PL/EN UI localization layer

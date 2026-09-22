@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Font Builder</title>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <p class="eyebrow">LOCAL FONT TOOL</p>
+        <h1>Font Builder <span>α2</span></h1>
+        <p>Wrzuć fonty, folder albo ZIP. Reszta dzieje się lokalnie.</p>
+      </div>
+      <div class="badge">macOS + Windows</div>
+    </header>
+
+    <section id="dropzone" class="dropzone">
+      <div class="dropicon">Aa</div>
+      <h2>Upuść fonty albo ZIP tutaj</h2>
+      <p>TTF · OTF · WOFF · WOFF2 · ZIP</p>
+      <button id="pick">Wybierz pliki / ZIP</button>
+    </section>
+
+    <section class="panel">
+      <div class="panelhead">
+        <div><span class="step">01</span><strong>Wejście</strong></div>
+        <button class="ghost" id="clear">Wyczyść</button>
+      </div>
+      <div id="files" class="files empty">Brak plików.</div>
+    </section>
+
+    <section class="actions">
+      <button id="analyze" disabled>ANALIZUJ</button>
+      <button id="build" disabled>BUILD VARIABLE FONT</button>
+    </section>
+
+    <section class="panel">
+      <div class="panelhead"><div><span class="step">02</span><strong>Analiza / build</strong></div></div>
+      <pre id="output">Czekam na pliki…</pre>
+    </section>
+  </main>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

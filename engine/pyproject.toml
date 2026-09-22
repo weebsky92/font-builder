@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fontbuilder-engine"
+version = "0.1.0a2"
+description = "Local font analysis and variable-font build engine"
+requires-python = ">=3.11"
+dependencies = [
+  "fonttools[woff]>=4.61.1",
+  "brotli>=1.1.0",
+]
+
+[project.scripts]
+fontbuilder-engine = "fontbuilder_engine.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fontbuilder_engine"]

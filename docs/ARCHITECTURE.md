@@ -1,45 +1,28 @@
-# Architecture — 0.1.0-alpha.2
+# Architecture
 
-## Boundary
+The project has two independent layers.
 
-This is an independent product/engine. It is **not** part of WEEBSKY OS unless a later explicit integration is approved.
+## Engine
 
-## Layers
+`engine/`
 
-1. `fontbuilder_engine.ingest`
-   - files / directories / ZIP
-   - nested ZIP
-   - safe extraction
-   - ignore README/LICENSE/macOS metadata/unsupported files
+- Python + FontTools
+- file/folder/ZIP ingestion
+- font-family analysis
+- topology checks
+- Variable Font build logic
+- TTF / OTF / WOFF / WOFF2 / CSS / ZIP output
+- JSON CLI contract
 
-2. `inspect`
-   - OpenType name tables
-   - weight / italic detection
-   - family grouping
-   - glyph topology audit
-   - AUTO build-mode decision
+The engine has no dependency on the desktop UI.
 
-3. `builder`
-   - TRUE VARIABLE via FontTools varLib where master topology is compatible
-   - DISCRETE VARIABLE via `fvar` + `STAT` + `GSUB FeatureVariations` where topology differs
-   - preserves supplied static master outlines in discrete mode
+## Desktop
 
-4. `otf`
-   - TTF/glyf -> genuine CFF OTF conversion
-   - keeps layout and variable metadata/FeatureVariations
+`desktop/`
 
-5. CLI JSON contract
-   - `analyze`
-   - `build`
-   - stable boundary for desktop UI and future host applications
+- Tauri 2
+- drag and drop
+- native file selection
+- local engine sidecar
 
-6. Tauri desktop shell
-   - drag & drop
-   - file/folder selection
-   - analysis screen
-   - build progress
-   - open output directory
-
-## Why no AI runtime
-
-Font family recognition, topology checks, axis construction and exports are deterministic. AI is not required for normal operation.
+The desktop shell talks to the engine through command-line arguments and JSON output. This keeps the engine reusable in a future larger app.

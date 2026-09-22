@@ -1,0 +1,22 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Font Builder Alpha",
+  "version": "0.1.0-alpha.2",
+  "identifier": "dev.weebsky.fontbuilder.alpha",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [{ "title": "Font Builder Alpha", "width": 1024, "height": 790, "minWidth": 760, "minHeight": 600, "dragDropEnabled": true }],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "resources": ["engine/*"]
+  }
+}

@@ -37,7 +37,10 @@ $('pick').addEventListener('click', async () => {
 });
 
 $('clear').addEventListener('click', () => {
-  state.paths = []; state.analysis = null; out.textContent = 'Czekam na pliki…'; renderFiles();
+  state.paths = [];
+  state.analysis = null;
+  out.textContent = 'Czekam na pliki…';
+  renderFiles();
 });
 
 $('analyze').addEventListener('click', async () => {
@@ -46,7 +49,9 @@ $('analyze').addEventListener('click', async () => {
     state.analysis = await invoke('run_engine', { args: ['analyze', ...state.paths] });
     out.textContent = JSON.stringify(state.analysis, null, 2);
     $('build').disabled = false;
-  } catch (e) { out.textContent = String(e); }
+  } catch (e) {
+    out.textContent = String(e);
+  }
 });
 
 $('build').addEventListener('click', async () => {
@@ -56,14 +61,18 @@ $('build').addEventListener('click', async () => {
   try {
     const result = await invoke('run_engine', { args: ['build', ...state.paths, '-o', dir, '--mode', 'auto', '--formats', 'ttf,otf,woff,woff2,css,zip'] });
     out.textContent = JSON.stringify(result, null, 2);
-  } catch (e) { out.textContent = String(e); }
+  } catch (e) {
+    out.textContent = String(e);
+  }
 });
 
 const webview = getCurrentWebview();
-await webview.onDragDropEvent((event) => {
+webview.onDragDropEvent((event) => {
   if (event.payload.type === 'drop') addPaths(event.payload.paths);
   document.body.classList.toggle('dragging', event.payload.type === 'enter' || event.payload.type === 'over');
   if (event.payload.type === 'leave' || event.payload.type === 'drop') document.body.classList.remove('dragging');
+}).catch((error) => {
+  console.error('Drag and drop initialization failed:', error);
 });
 
 renderFiles();

@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+
+# Engine packaging
+build-engine/
+
+# Node / Vite
+node_modules/
+desktop/dist/
+
+# Tauri / Rust
+desktop/src-tauri/target/
+desktop/src-tauri/engine/*
+!desktop/src-tauri/engine/.gitkeep
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Generated font outputs
+output/
+*.woff
+*.woff2

@@ -1,0 +1,102 @@
+name: Build desktop apps
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-latest
+            engine_name: fontbuilder-engine
+          - name: Windows
+            os: windows-latest
+            engine_name: fontbuilder-engine.exe
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: echo "Linux desktop build is not part of this matrix."
+
+      - name: Install engine dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ./engine nuitka ordered-set zstandard pytest
+
+      - name: Test engine
+        shell: bash
+        run: |
+          python -m fontbuilder_engine --version
+          python -m pytest engine/tests
+
+      - name: Build local engine sidecar
+        shell: bash
+        run: |
+          rm -rf desktop/src-tauri/engine build-engine
+          mkdir -p desktop/src-tauri/engine
+          python -m nuitka \
+            --onefile \
+            --follow-imports \
+            --include-package=fontbuilder_engine \
+            --assume-yes-for-downloads \
+            --output-dir=build-engine \
+            --output-filename=${{ matrix.engine_name }} \
+            engine/nuitka_entry.py
+          cp "build-engine/${{ matrix.engine_name }}" "desktop/src-tauri/engine/${{ matrix.engine_name }}"
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm install
+
+      - name: Build desktop bundle
+        working-directory: desktop
+        run: npm run tauri build
+
+      - name: Upload bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: font-builder-${{ runner.os }}
+          path: |
+            desktop/src-tauri/target/release/bundle/**
+          if-no-files-found: error
+
+  source:
+    name: Source package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create source archive
+        run: git archive --format=zip --output=font-builder-source.zip HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: font-builder-source
+          path: font-builder-source.zip

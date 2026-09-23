@@ -48,13 +48,17 @@ jobs:
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ./engine nuitka ordered-set zstandard pytest
+          python -m pip install ./engine nuitka ordered-set zstandard pytest pillow
 
       - name: Test engine
         shell: bash
         run: |
           python -m fontbuilder_engine --version
           python -m pytest engine/tests
+
+      - name: Generate desktop icons
+        shell: bash
+        run: python scripts/generate_dev_icons.py
 
       - name: Build local engine sidecar
         shell: bash

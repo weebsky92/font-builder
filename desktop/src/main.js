@@ -17,6 +17,7 @@ const state = {
   glyphPreview: null,
   glyphSelected: null,
   glyphRecipes: {},
+  repairedOutputs: [],
   lang: savedLang || detectedLang,
   settings: {
     close_to_tray: false,
@@ -127,6 +128,17 @@ function analysisData() {
   return state.analysis?.families?.[0] || null;
 }
 
+function variableEligibility(family) {
+  const fonts = family?.fonts || [];
+  if (fonts.length < 2) {
+    return { ok: false, reason: t('analysis.needTwoMasters') };
+  }
+  if (family?.build_mode === 'unsupported-source-outline') {
+    return { ok: false, reason: t('analysis.unsupportedVariable') };
+  }
+  return { ok: true, reason: '' };
+}
+
 function glyphFamily() {
   return state.glyphAudit?.families?.[0] || null;
 }
@@ -172,12 +184,36 @@ function renderAnalysis() {
   const italics = fonts.filter(f => f.italic).length;
   const romans = fonts.length - italics;
   const mode = family.build_mode;
-  const note = mode === 'true-variable' ? t('analysis.smoothNote') : t('analysis.discreteNote');
+  const eligibility = variableEligibility(family);
+
+  let note;
+  if (fonts.length < 2) note = t('analysis.singleMasterNote');
+  else if (mode === 'unsupported-source-outline') note = t('analysis.unsupportedNote');
+  else if (mode === 'true-variable') note = t('analysis.smoothNote');
+  else note = t('analysis.discreteNote');
+
+  const repaired = state.repairedOutputs?.length === 1 ? state.repairedOutputs[0] : null;
+  const repairedBox = repaired ? `
+    <div class="static-export-bar">
+      <div>
+        <strong>✓ ${esc(t('analysis.repairedReady'))}</strong>
+        <small>${esc(basename(repaired))}</small>
+      </div>
+      <button id="save-repaired-static">${esc(t('analysis.saveRepaired'))}</button>
+    </div>
+  ` : '';
+
+  const blocker = eligibility.ok ? '' : `
+    <div class="build-blocker">
+      <strong>${esc(t('analysis.variableUnavailable'))}</strong>
+      <span>${esc(eligibility.reason)}</span>
+    </div>
+  `;
 
   $('analysis-content').innerHTML = `
     <div class="stage-head">
       <div>
-        <span class="status-pill success">✓ ${esc(t('analysis.title'))}</span>
+        <span class="status-pill success">✓ ${esc(t('analysis.reviewed'))}</span>
         <h2>${esc(family.family)}</h2>
       </div>
       <div class="subtle">${esc(t('analysis.ignored'))}: <strong>${state.analysis?.ignored?.length || 0}</strong></div>
@@ -191,11 +227,17 @@ function renderAnalysis() {
     </div>
 
     ${renderGlyphSummaryBar()}
+    ${repairedBox}
+    ${blocker}
 
     <div class="stage-note">${esc(note)}</div>
   `;
 
   $('open-glyph-lab')?.addEventListener('click', openGlyphLab);
+  $('save-repaired-static')?.addEventListener('click', () => saveOutput(repaired, ext(repaired)));
+
+  $('build').disabled = !eligibility.ok;
+  $('build').title = eligibility.ok ? '' : eligibility.reason;
 }
 
 function collectOutputs() {
@@ -271,6 +313,7 @@ function resetAll() {
   state.glyphPreview = null;
   state.glyphSelected = null;
   state.glyphRecipes = {};
+  state.repairedOutputs = [];
   render();
 }
 
@@ -285,6 +328,7 @@ function addPaths(paths) {
   state.glyphPreview = null;
   state.glyphSelected = null;
   state.glyphRecipes = {};
+  state.repairedOutputs = [];
   state.step = 1;
   render();
 }
@@ -314,6 +358,12 @@ async function analyze() {
 }
 
 async function build() {
+  const eligibility = variableEligibility(analysisData());
+  if (!eligibility.ok) {
+    alert(t('analysis.variableUnavailable') + '\n\n' + eligibility.reason);
+    return;
+  }
+
   showOverlay('loading.build');
 
   try {
@@ -769,6 +819,7 @@ async function repairGlyphs() {
     });
 
     state.paths = [response.result.output_dir];
+    state.repairedOutputs = [...(response.result.outputs || [])];
     state.glyphRecipes = {};
     state.glyphPreview = null;
     state.glyphSelected = null;

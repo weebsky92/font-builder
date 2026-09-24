@@ -13,6 +13,10 @@ const state = {
   analysis: null,
   build: null,
   buildDir: null,
+  glyphAudit: null,
+  glyphPreview: null,
+  glyphSelected: null,
+  glyphRecipes: {},
   lang: savedLang || detectedLang,
   settings: {
     close_to_tray: false,
@@ -69,6 +73,7 @@ function setLanguage(lang) {
   });
 
   render();
+  if (!$('glyph-modal').classList.contains('hidden')) renderGlyphLab();
 }
 
 function showOverlay(key) {
@@ -122,6 +127,42 @@ function analysisData() {
   return state.analysis?.families?.[0] || null;
 }
 
+function glyphFamily() {
+  return state.glyphAudit?.families?.[0] || null;
+}
+
+function renderGlyphSummaryBar() {
+  const family = glyphFamily();
+  if (!family) return '';
+
+  if (family.complete) {
+    return `
+      <div class="glyph-audit-bar complete">
+        <div>
+          <span class="glyph-audit-icon">✓</span>
+          <div>
+            <strong>${esc(t('analysis.polishComplete'))}</strong>
+            <small>Ą Ć Ę Ł Ń Ó Ś Ź Ż · ą ć ę ł ń ó ś ź ż</small>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="glyph-audit-bar warning">
+      <div>
+        <span class="glyph-audit-icon">${family.missing_count}</span>
+        <div>
+          <strong>${esc(t('analysis.polishMissing'))}: ${family.missing_count}</strong>
+          <small>Ą Ć Ę Ł Ń Ó Ś Ź Ż · ą ć ę ł ń ó ś ź ż</small>
+        </div>
+      </div>
+      <button id="open-glyph-lab" class="glyph-lab-btn">${esc(t('analysis.openGlyphLab'))}</button>
+    </div>
+  `;
+}
+
 function renderAnalysis() {
   const family = analysisData();
   if (!family) return;
@@ -149,8 +190,12 @@ function renderAnalysis() {
       <div class="metric"><span>${esc(t('analysis.mode'))}</span><strong class="metric-text">${esc(modeLabel(mode))}</strong><small>${esc(state.settings.build_mode.toUpperCase())}</small></div>
     </div>
 
+    ${renderGlyphSummaryBar()}
+
     <div class="stage-note">${esc(note)}</div>
   `;
+
+  $('open-glyph-lab')?.addEventListener('click', openGlyphLab);
 }
 
 function collectOutputs() {
@@ -222,6 +267,10 @@ function resetAll() {
   state.analysis = null;
   state.build = null;
   state.buildDir = null;
+  state.glyphAudit = null;
+  state.glyphPreview = null;
+  state.glyphSelected = null;
+  state.glyphRecipes = {};
   render();
 }
 
@@ -232,15 +281,29 @@ function addPaths(paths) {
   state.analysis = null;
   state.build = null;
   state.buildDir = null;
+  state.glyphAudit = null;
+  state.glyphPreview = null;
+  state.glyphSelected = null;
+  state.glyphRecipes = {};
   state.step = 1;
   render();
+}
+
+async function runAnalysis() {
+  state.analysis = await invoke('run_engine', { args: ['analyze', ...state.paths] });
+  try {
+    state.glyphAudit = await invoke('run_engine', { args: ['glyph-audit', ...state.paths] });
+  } catch (error) {
+    console.warn('Glyph audit unavailable', error);
+    state.glyphAudit = null;
+  }
 }
 
 async function analyze() {
   showOverlay('loading.analyze');
 
   try {
-    state.analysis = await invoke('run_engine', { args: ['analyze', ...state.paths] });
+    await runAnalysis();
     state.step = 2;
     render();
   } catch (error) {
@@ -343,6 +406,388 @@ async function saveSettings() {
   }
 }
 
+function glyphItem(char) {
+  return glyphFamily()?.chars?.find(item => item.char === char) || null;
+}
+
+function glyphStatusText(item) {
+  if (!item) return '—';
+  if (item.status === 'present') return t('glyph.present');
+  if (item.status === 'partial') return t('glyph.partial');
+  return t('glyph.missing');
+}
+
+function renderGlyphGrid() {
+  const family = glyphFamily();
+  if (!family) return;
+
+  $('glyph-family').textContent = family.family;
+
+  $('glyph-grid').innerHTML = family.chars.map(item => {
+    const selected = item.char === state.glyphSelected ? 'selected' : '';
+    const queued = state.glyphRecipes[item.char] ? 'queued' : '';
+    return `
+      <button class="glyph-cell ${item.status} ${selected} ${queued}" data-glyph-char="${esc(item.char)}">
+        <span>${esc(item.char)}</span>
+        <small>${esc(item.codepoint)}</small>
+      </button>
+    `;
+  }).join('');
+
+  document.querySelectorAll('[data-glyph-char]').forEach(button => {
+    button.addEventListener('click', () => selectGlyph(button.dataset.glyphChar));
+  });
+
+  const missing = family.chars.filter(item => item.status !== 'present');
+  const ready = missing.filter(item => item.repairable).length;
+
+  $('glyph-summary-title').textContent = family.complete
+    ? t('glyph.summaryComplete')
+    : t('glyph.summaryMissing') + ': ' + missing.length;
+
+  $('glyph-summary-text').textContent = family.complete
+    ? '18 / 18'
+    : t('glyph.summaryReady') + ': ' + ready + ' / ' + missing.length;
+}
+
+function recipeSourceLabel(preview) {
+  if (!preview) return '—';
+  if (preview.existing_name) return t('glyph.existing');
+  if (preview.recipe?.geometry) return t('glyph.geometry');
+  if (preview.mark_name) return t('glyph.component') + ': ' + preview.mark_name;
+  return t('glyph.notRepairable');
+}
+
+function transformPoint(x, y, ox, oy, scale, angleDeg) {
+  const angle = angleDeg * Math.PI / 180;
+  const px = (x - ox) * scale;
+  const py = (y - oy) * scale;
+  const c = Math.cos(angle);
+  const s = Math.sin(angle);
+  return [ox + px * c - py * s, oy + px * s + py * c];
+}
+
+function geometryPath(kind, recipe, upm) {
+  const x = Number(recipe.dx || 0);
+  const y = Number(recipe.dy || 0);
+  const scale = Number(recipe.scale || 1);
+  const rotation = Number(recipe.rotation || 0);
+  const w = Number(recipe.mark_width || upm * 0.13);
+  const h = Number(recipe.mark_height || upm * 0.18);
+  let raw;
+
+  if (kind === 'acute') {
+    raw = [
+      [x, y],
+      [x + w * 0.36, y],
+      [x + w, y + h],
+      [x + w * 0.55, y + h]
+    ];
+  } else if (kind === 'dot') {
+    raw = [
+      [x + w * 0.5, y],
+      [x + w, y + h * 0.5],
+      [x + w * 0.5, y + h],
+      [x, y + h * 0.5]
+    ];
+  } else {
+    raw = [
+      [x + w * 0.78, y + h],
+      [x + w, y + h * 0.82],
+      [x + w * 0.72, y + h * 0.46],
+      [x + w * 0.48, y + h * 0.12],
+      [x + w * 0.18, y],
+      [x, y + h * 0.18],
+      [x + w * 0.30, y + h * 0.34],
+      [x + w * 0.50, y + h * 0.66]
+    ];
+  }
+
+  const pts = raw.map(([px, py]) => transformPoint(px, py, x, y, scale, rotation));
+  return 'M' + pts.map(([px, py]) => px.toFixed(2) + ' ' + py.toFixed(2)).join(' L') + ' Z';
+}
+
+function strokePath(recipe) {
+  const x = Number(recipe.stroke_x || 0) + Number(recipe.dx || 0);
+  const y = Number(recipe.stroke_y || 0) + Number(recipe.dy || 0);
+  const width = Number(recipe.stroke_width || 500) * Number(recipe.scale || 1);
+  const thickness = Number(recipe.thickness || 60) * Number(recipe.scale || 1);
+  const angle = Number(recipe.rotation || -10) * Math.PI / 180;
+  const vx = Math.cos(angle) * width;
+  const vy = Math.sin(angle) * width;
+  const nx = -Math.sin(angle) * thickness / 2;
+  const ny = Math.cos(angle) * thickness / 2;
+  const pts = [
+    [x + nx, y + ny],
+    [x + vx + nx, y + vy + ny],
+    [x + vx - nx, y + vy - ny],
+    [x - nx, y - ny]
+  ];
+  return 'M' + pts.map(([px, py]) => px.toFixed(2) + ' ' + py.toFixed(2)).join(' L') + ' Z';
+}
+
+function renderGlyphCanvas() {
+  const preview = state.glyphPreview;
+  const item = glyphItem(state.glyphSelected);
+  if (!preview || !item) {
+    $('glyph-canvas').innerHTML = '';
+    return;
+  }
+
+  const recipe = state.glyphRecipes[state.glyphSelected] || preview.recipe || {};
+  const width = Math.max(Number(preview.advance || 1000), Number(preview.upm || 1000)) + 220;
+  const ascent = Number(preview.ascent || 800);
+  const descent = Number(preview.descent || -200);
+  const height = ascent - descent + 220;
+  const viewY = -ascent - 110;
+
+  let mark = '';
+  if (item.status === 'present' && preview.existing_path) {
+    mark = `<path class="glyph-existing" d="${esc(preview.existing_path)}"></path>`;
+  } else if (recipe.kind === 'stroke') {
+    mark = `<path class="glyph-mark" d="${strokePath(recipe)}"></path>`;
+  } else if (recipe.geometry) {
+    mark = `<path class="glyph-mark" d="${geometryPath(recipe.kind, recipe, Number(preview.upm || 1000))}"></path>`;
+  } else if (preview.mark_path) {
+    const dx = Number(recipe.dx || 0);
+    const dy = Number(recipe.dy || 0);
+    const scale = Number(recipe.scale || 1);
+    const rotation = Number(recipe.rotation || 0);
+    mark = `
+      <g transform="translate(${dx} ${dy}) rotate(${rotation}) scale(${scale})">
+        <path class="glyph-mark" d="${esc(preview.mark_path)}"></path>
+      </g>
+    `;
+  }
+
+  const basePath = item.status === 'present' && preview.existing_path ? '' :
+    `<path class="glyph-base" d="${esc(preview.base_path)}"></path>`;
+
+  $('glyph-canvas').innerHTML = `
+    <svg viewBox="-110 ${viewY} ${width} ${height}" preserveAspectRatio="xMidYMid meet">
+      <line class="glyph-baseline" x1="-110" x2="${width}" y1="0" y2="0"></line>
+      <g transform="scale(1 -1)">
+        ${basePath}
+        ${mark}
+      </g>
+    </svg>
+  `;
+}
+
+function setRange(id, value, min, max, step = 1) {
+  const input = $(id);
+  input.min = String(min);
+  input.max = String(max);
+  input.step = String(step);
+  input.value = String(Number(value ?? 0));
+}
+
+function updateGlyphControlLabels() {
+  const recipe = state.glyphRecipes[state.glyphSelected] || {};
+  $('glyph-x-value').textContent = Math.round(Number(recipe.dx || 0));
+  $('glyph-y-value').textContent = Math.round(Number(recipe.dy || 0));
+  $('glyph-scale-value').textContent = Number(recipe.scale || 1).toFixed(2);
+  $('glyph-rotation-value').textContent = Math.round(Number(recipe.rotation || 0)) + '°';
+  $('glyph-thickness-value').textContent = Math.round(Number(recipe.thickness || 0));
+  $('glyph-width-value').textContent = Math.round(Number(recipe.mark_width || 0));
+  $('glyph-height-value').textContent = Math.round(Number(recipe.mark_height || 0));
+}
+
+function renderGlyphControls() {
+  const preview = state.glyphPreview;
+  const item = glyphItem(state.glyphSelected);
+  if (!preview || !item) return;
+
+  $('glyph-char-label').textContent = item.char;
+  $('glyph-status-label').textContent = glyphStatusText(item);
+  $('glyph-source-label').textContent = recipeSourceLabel(preview);
+
+  const recipe = state.glyphRecipes[item.char] || preview.recipe || {};
+  const upm = Number(preview.upm || 1000);
+
+  setRange('glyph-x', recipe.dx || 0, -upm, upm, 1);
+  setRange('glyph-y', recipe.dy || 0, -upm, upm * 1.5, 1);
+  $('glyph-scale').value = String(Number(recipe.scale || 1));
+  $('glyph-rotation').value = String(Number(recipe.rotation || 0));
+
+  $('glyph-thickness-row').classList.toggle('hidden', recipe.kind !== 'stroke');
+  $('glyph-width-row').classList.toggle('hidden', !recipe.geometry);
+  $('glyph-height-row').classList.toggle('hidden', !recipe.geometry);
+
+  if (recipe.kind === 'stroke') {
+    setRange('glyph-thickness', recipe.thickness || upm * 0.055, 8, upm * 0.25, 1);
+  }
+  if (recipe.geometry) {
+    setRange('glyph-width', recipe.mark_width || upm * 0.13, 20, upm * 0.5, 1);
+    setRange('glyph-height', recipe.mark_height || upm * 0.18, 20, upm * 0.5, 1);
+  }
+
+  const disabled = item.status === 'present' || !item.repairable;
+  document.querySelectorAll('.glyph-controls input').forEach(input => input.disabled = disabled);
+  $('glyph-save-recipe').disabled = disabled;
+
+  $('glyph-recipe-status').textContent = !item.repairable
+    ? t('glyph.notRepairable')
+    : (state.glyphRecipes[item.char]?._edited ? t('glyph.recipeSaved') : '');
+
+  updateGlyphControlLabels();
+  renderGlyphCanvas();
+}
+
+function renderGlyphLab() {
+  renderGlyphGrid();
+  renderGlyphControls();
+}
+
+async function selectGlyph(char) {
+  state.glyphSelected = char;
+  renderGlyphGrid();
+
+  showOverlay('loading.glyphPreview');
+  try {
+    const current = state.glyphRecipes[char];
+    const args = ['glyph-preview', '--char', char];
+    if (current) args.push('--recipe-json', JSON.stringify(current));
+    args.push(...state.paths);
+
+    const response = await invoke('run_engine', { args });
+    state.glyphPreview = response.preview;
+
+    if (!state.glyphRecipes[char]) {
+      state.glyphRecipes[char] = { ...(response.preview?.recipe || {}) };
+    }
+
+    renderGlyphLab();
+  } catch (error) {
+    alert(t('error.title') + '\n\n' + String(error));
+  } finally {
+    hideOverlay();
+  }
+}
+
+async function openGlyphLab() {
+  const family = glyphFamily();
+  if (!family) return;
+
+  $('glyph-modal').classList.remove('hidden');
+  $('glyph-modal').setAttribute('aria-hidden', 'false');
+
+  const first = family.chars.find(item => item.status !== 'present') || family.chars[0];
+  if (first) await selectGlyph(first.char);
+}
+
+function closeGlyphLab() {
+  $('glyph-modal').classList.add('hidden');
+  $('glyph-modal').setAttribute('aria-hidden', 'true');
+}
+
+function updateRecipeFromControls() {
+  const char = state.glyphSelected;
+  if (!char || !state.glyphRecipes[char]) return;
+
+  const recipe = state.glyphRecipes[char];
+  recipe.dx = Number($('glyph-x').value);
+  recipe.dy = Number($('glyph-y').value);
+  recipe.scale = Number($('glyph-scale').value);
+  recipe.rotation = Number($('glyph-rotation').value);
+
+  if (recipe.kind === 'stroke') {
+    recipe.thickness = Number($('glyph-thickness').value);
+  }
+  if (recipe.geometry) {
+    recipe.mark_width = Number($('glyph-width').value);
+    recipe.mark_height = Number($('glyph-height').value);
+  }
+
+  recipe._edited = true;
+  state.glyphRecipes[char] = recipe;
+  updateGlyphControlLabels();
+  renderGlyphCanvas();
+  renderGlyphGrid();
+}
+
+async function resetGlyphAuto() {
+  const item = glyphItem(state.glyphSelected);
+  if (!item) return;
+
+  state.glyphRecipes[item.char] = { ...(item.suggested_recipe || {}) };
+  state.glyphRecipes[item.char]._edited = false;
+  await selectGlyph(item.char);
+  $('glyph-recipe-status').textContent = t('glyph.autoLoaded');
+}
+
+function autoAllGlyphs() {
+  const family = glyphFamily();
+  if (!family) return;
+
+  family.chars.forEach(item => {
+    if (item.status !== 'present' && item.repairable && item.suggested_recipe) {
+      state.glyphRecipes[item.char] = { ...item.suggested_recipe };
+    }
+  });
+
+  renderGlyphLab();
+}
+
+function saveGlyphRecipe() {
+  const char = state.glyphSelected;
+  if (!char || !state.glyphRecipes[char]) return;
+  state.glyphRecipes[char]._edited = true;
+  $('glyph-recipe-status').textContent = t('glyph.recipeSaved');
+  renderGlyphGrid();
+}
+
+async function repairGlyphs() {
+  const family = glyphFamily();
+  if (!family) return;
+
+  const missing = family.chars.filter(item => item.status !== 'present');
+  const blocked = missing.filter(item => !item.repairable);
+  if (blocked.length) {
+    alert(t('glyph.notRepairable') + '\n\n' + blocked.map(item => item.char).join(' '));
+    return;
+  }
+
+  const recipes = missing.map(item => {
+    const recipe = state.glyphRecipes[item.char] || item.suggested_recipe;
+    const clean = { ...(recipe || {}) };
+    delete clean._edited;
+    return clean;
+  });
+
+  showOverlay('loading.glyphRepair');
+
+  try {
+    const repairDir = await invoke('create_build_dir');
+    const response = await invoke('run_engine', {
+      args: [
+        'glyph-repair',
+        '-o', repairDir,
+        '--recipes-json', JSON.stringify(recipes),
+        ...state.paths
+      ]
+    });
+
+    state.paths = [response.result.output_dir];
+    state.glyphRecipes = {};
+    state.glyphPreview = null;
+    state.glyphSelected = null;
+    await runAnalysis();
+    state.step = 2;
+    closeGlyphLab();
+    render();
+
+    setTimeout(() => {
+      const bar = document.querySelector('.glyph-audit-bar.complete');
+      if (bar) bar.classList.add('flash-success');
+    }, 60);
+  } catch (error) {
+    alert(t('error.title') + '\n\n' + String(error));
+  } finally {
+    hideOverlay();
+  }
+}
+
 $('pick-files').addEventListener('click', async () => {
   const selected = await open({
     multiple: true,
@@ -376,12 +821,25 @@ $('settings-close').addEventListener('click', closeSettings);
 $('settings-save').addEventListener('click', saveSettings);
 document.querySelectorAll('[data-close-settings]').forEach(el => el.addEventListener('click', closeSettings));
 
+$('glyph-close').addEventListener('click', closeGlyphLab);
+document.querySelectorAll('[data-close-glyphs]').forEach(el => el.addEventListener('click', closeGlyphLab));
+$('glyph-auto-all').addEventListener('click', autoAllGlyphs);
+$('glyph-reset').addEventListener('click', resetGlyphAuto);
+$('glyph-save-recipe').addEventListener('click', saveGlyphRecipe);
+$('glyph-repair').addEventListener('click', repairGlyphs);
+
+['glyph-x','glyph-y','glyph-scale','glyph-rotation','glyph-thickness','glyph-width','glyph-height']
+  .forEach(id => $(id).addEventListener('input', updateRecipeFromControls));
+
 document.querySelectorAll('.lang-btn').forEach(button => {
   button.addEventListener('click', () => setLanguage(button.dataset.lang));
 });
 
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape') closeSettings();
+  if (event.key === 'Escape') {
+    closeSettings();
+    closeGlyphLab();
+  }
 });
 
 const webview = getCurrentWebview();

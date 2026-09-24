@@ -10,7 +10,7 @@
     <header class="topbar">
       <div>
         <p class="eyebrow" data-i18n="eyebrow">LOKALNE NARZĘDZIE DO FONTÓW</p>
-        <h1>Font Builder <span>α5</span></h1>
+        <h1>Font Builder <span>α6</span></h1>
       </div>
 
       <div class="top-actions">
@@ -136,6 +136,110 @@
         <div class="modal-footer">
           <span id="settings-message" class="settings-message"></span>
           <button id="settings-save" data-i18n="settings.save">ZAPISZ USTAWIENIA</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="glyph-modal" class="modal glyph-modal hidden" aria-hidden="true">
+      <div class="modal-backdrop" data-close-glyphs></div>
+      <div class="glyph-shell" role="dialog" aria-modal="true" aria-labelledby="glyph-title">
+        <div class="glyph-head">
+          <div>
+            <span class="modal-kicker" data-i18n="glyph.kicker">POLSKIE ZNAKI</span>
+            <h2 id="glyph-title" data-i18n="glyph.title">Glyph Lab</h2>
+            <p id="glyph-family"></p>
+          </div>
+          <button id="glyph-close" class="icon-btn close-btn" aria-label="Close">×</button>
+        </div>
+
+        <div class="glyph-layout">
+          <aside class="glyph-sidebar">
+            <div class="glyph-sidebar-head">
+              <strong data-i18n="glyph.table">Tablica znaków</strong>
+              <button id="glyph-auto-all" class="mini-btn" data-i18n="glyph.autoAll">AUTO WSZYSTKIE</button>
+            </div>
+            <div id="glyph-grid" class="glyph-grid"></div>
+            <div class="glyph-legend">
+              <span><i class="dot present"></i><span data-i18n="glyph.present">Jest</span></span>
+              <span><i class="dot missing"></i><span data-i18n="glyph.missing">Brak</span></span>
+              <span><i class="dot partial"></i><span data-i18n="glyph.partial">Częściowo</span></span>
+            </div>
+          </aside>
+
+          <section class="glyph-preview-panel">
+            <div class="glyph-preview-head">
+              <div>
+                <span id="glyph-char-label" class="glyph-big-char">Ą</span>
+                <div>
+                  <strong id="glyph-status-label">—</strong>
+                  <small id="glyph-source-label">—</small>
+                </div>
+              </div>
+              <button id="glyph-reset" class="secondary mini-btn" data-i18n="glyph.reset">RESET AUTO</button>
+            </div>
+
+            <div id="glyph-canvas" class="glyph-canvas"></div>
+          </section>
+
+          <aside class="glyph-controls">
+            <div class="control-head">
+              <strong data-i18n="glyph.adjust">Dopasowanie</strong>
+              <small data-i18n="glyph.adjustHelp">Pozycja i kształt są zapisywane jako recepta dla brakującego znaku.</small>
+            </div>
+
+            <label class="slider-row">
+              <span>X <b id="glyph-x-value">0</b></span>
+              <input id="glyph-x" type="range" />
+            </label>
+
+            <label class="slider-row">
+              <span>Y <b id="glyph-y-value">0</b></span>
+              <input id="glyph-y" type="range" />
+            </label>
+
+            <label class="slider-row">
+              <span data-i18n="glyph.scale">Skala</span>
+              <input id="glyph-scale" type="range" min="0.4" max="2" step="0.01" />
+              <b id="glyph-scale-value">1.00</b>
+            </label>
+
+            <label class="slider-row">
+              <span data-i18n="glyph.rotation">Obrót</span>
+              <input id="glyph-rotation" type="range" min="-45" max="45" step="1" />
+              <b id="glyph-rotation-value">0°</b>
+            </label>
+
+            <label id="glyph-thickness-row" class="slider-row conditional hidden">
+              <span data-i18n="glyph.thickness">Grubość kreski</span>
+              <input id="glyph-thickness" type="range" min="8" max="220" step="1" />
+              <b id="glyph-thickness-value">60</b>
+            </label>
+
+            <label id="glyph-width-row" class="slider-row conditional hidden">
+              <span data-i18n="glyph.width">Szerokość elementu</span>
+              <input id="glyph-width" type="range" min="20" max="420" step="1" />
+              <b id="glyph-width-value">130</b>
+            </label>
+
+            <label id="glyph-height-row" class="slider-row conditional hidden">
+              <span data-i18n="glyph.height">Wysokość elementu</span>
+              <input id="glyph-height" type="range" min="20" max="420" step="1" />
+              <b id="glyph-height-value">180</b>
+            </label>
+
+            <div class="glyph-recipe-status" id="glyph-recipe-status"></div>
+          </aside>
+        </div>
+
+        <div class="glyph-footer">
+          <div>
+            <strong id="glyph-summary-title"></strong>
+            <small id="glyph-summary-text"></small>
+          </div>
+          <div class="glyph-footer-actions">
+            <button id="glyph-save-recipe" class="secondary" data-i18n="glyph.saveRecipe">ZAPISZ RECEPTĘ</button>
+            <button id="glyph-repair" data-i18n="glyph.repair">NAPRAW I WRÓĆ</button>
+          </div>
         </div>
       </div>
     </section>

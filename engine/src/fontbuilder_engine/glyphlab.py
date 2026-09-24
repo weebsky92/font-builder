@@ -9,6 +9,7 @@ from typing import Any
 from fontTools.pens.boundsPen import BoundsPen
 from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
+from fontTools.pens.recordingPen import DecomposingRecordingPen
 from fontTools.ttLib import TTFont
 
 from .inspect import group_fonts
@@ -135,12 +136,35 @@ def _default_recipe(font: TTFont, char: str) -> dict[str, Any]:
 
     mark_name = _find_mark(font, spec["kind"])
     if not mark_name:
+        gap = max(upm * 0.025, 18.0)
+        if spec["kind"] == "acute":
+            mark_width = upm * 0.13
+            mark_height = upm * 0.18
+            dx = base_cx - mark_width / 2.0
+            dy = by1 + gap
+        elif spec["kind"] == "dot":
+            mark_width = upm * 0.095
+            mark_height = mark_width
+            dx = base_cx - mark_width / 2.0
+            dy = by1 + gap
+        else:
+            mark_width = upm * 0.18
+            mark_height = upm * 0.22
+            dx = bx0 + bw * 0.61
+            dy = by0 - mark_height * 0.82
+
         return {
             "char": char,
             "base": spec["base"],
             "kind": spec["kind"],
-            "repairable": False,
-            "reason": "missing-mark",
+            "repairable": True,
+            "geometry": True,
+            "dx": round(dx, 2),
+            "dy": round(dy, 2),
+            "scale": 1.0,
+            "rotation": 0.0,
+            "mark_width": round(mark_width, 2),
+            "mark_height": round(mark_height, 2),
         }
 
     mx0, my0, mx1, my1 = _bounds(font, mark_name)
@@ -310,6 +334,73 @@ def _build_accent_glyph(font: TTFont, base_name: str, mark_name: str, recipe: di
     return pen.glyph()
 
 
+def _transform_point(x: float, y: float, ox: float, oy: float, scale: float, angle: float):
+    px = (x - ox) * scale
+    py = (y - oy) * scale
+    cos_a = math.cos(angle)
+    sin_a = math.sin(angle)
+    return (
+        ox + px * cos_a - py * sin_a,
+        oy + px * sin_a + py * cos_a,
+    )
+
+
+def _draw_geometry_mark(pen: TTGlyphPen, kind: str, recipe: dict[str, Any], upm: float):
+    x = float(recipe.get("dx", 0.0))
+    y = float(recipe.get("dy", 0.0))
+    scale = max(0.1, float(recipe.get("scale", 1.0)))
+    angle = math.radians(float(recipe.get("rotation", 0.0)))
+    w = float(recipe.get("mark_width", upm * 0.13))
+    h = float(recipe.get("mark_height", upm * 0.18))
+
+    if kind == "acute":
+        raw = [
+            (x, y),
+            (x + w * 0.36, y),
+            (x + w, y + h),
+            (x + w * 0.55, y + h),
+        ]
+    elif kind == "dot":
+        raw = [
+            (x + w * 0.50, y),
+            (x + w, y + h * 0.50),
+            (x + w * 0.50, y + h),
+            (x, y + h * 0.50),
+        ]
+    else:
+        raw = [
+            (x + w * 0.78, y + h),
+            (x + w, y + h * 0.82),
+            (x + w * 0.72, y + h * 0.46),
+            (x + w * 0.48, y + h * 0.12),
+            (x + w * 0.18, y),
+            (x, y + h * 0.18),
+            (x + w * 0.30, y + h * 0.34),
+            (x + w * 0.50, y + h * 0.66),
+        ]
+
+    points = [_transform_point(px, py, x, y, scale, angle) for px, py in raw]
+    pen.moveTo(points[0])
+    for point in points[1:]:
+        pen.lineTo(point)
+    pen.closePath()
+
+
+def _build_geometry_glyph(font: TTFont, base_name: str, recipe: dict[str, Any]):
+    glyph_set = font.getGlyphSet()
+    recording = DecomposingRecordingPen(glyph_set)
+    glyph_set[base_name].draw(recording)
+    pen = TTGlyphPen(None)
+    recording.replay(pen)
+    _draw_geometry_mark(
+        pen,
+        str(recipe.get("kind", "acute")),
+        recipe,
+        float(font["head"].unitsPerEm),
+    )
+    return pen.glyph()
+
+
 def _build_stroke_glyph(font: TTFont, base_name: str, recipe: dict[str, Any]):
     glyph_set = font.getGlyphSet()
     pen = TTGlyphPen(glyph_set)
@@ -382,9 +473,10 @@ def repair_paths(paths: list[Path], output_dir: Path, recipes: list[dict[str, An
                     glyph = _build_stroke_glyph(font, base_name, resolved)
                 else:
                     mark_name = resolved.get("mark") or _find_mark(font, spec["kind"])
-                    if not mark_name:
-                        raise ValueError(f"{source.path.name}: missing {spec['kind']} mark for {char}")
-                    glyph = _build_accent_glyph(font, base_name, mark_name, resolved)
+                    if mark_name and not resolved.get("geometry", False):
+                        glyph = _build_accent_glyph(font, base_name, mark_name, resolved)
+                    else:
+                        glyph = _build_geometry_glyph(font, base_name, resolved)
 
                 if glyph_name not in order:
                     order.append(glyph_name)

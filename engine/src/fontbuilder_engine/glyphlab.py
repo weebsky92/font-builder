@@ -10,6 +10,8 @@ from fontTools.pens.boundsPen import BoundsPen
 from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.pens.recordingPen import DecomposingRecordingPen
+from fontTools.pens.t2CharStringPen import T2CharStringPen
+from fontTools.pens.transformPen import TransformPen
 from fontTools.ttLib import TTFont
 
 from .inspect import group_fonts
@@ -222,7 +224,16 @@ def audit_paths(paths: list[Path]) -> dict[str, Any]:
                     present += 1
                     continue
 
-                recipe = _default_recipe(font, char)
+                try:
+                    recipe = _default_recipe(font, char)
+                except Exception as exc:
+                    recipe = {
+                        "char": char,
+                        "base": spec["base"],
+                        "kind": spec["kind"],
+                        "repairable": False,
+                        "reason": f"audit-error:{exc}",
+                    }
                 if not recipe.get("repairable"):
                     repairable = False
                 missing.append({
@@ -242,7 +253,16 @@ def audit_paths(paths: list[Path]) -> dict[str, Any]:
                 fonts,
                 key=lambda item: (item[0].italic, abs(item[0].weight - 400)),
             )[1]
-            suggested = _default_recipe(preview_font, char)
+            try:
+                suggested = _default_recipe(preview_font, char)
+            except Exception as exc:
+                suggested = {
+                    "char": char,
+                    "base": spec["base"],
+                    "kind": spec["kind"],
+                    "repairable": False,
+                    "reason": f"audit-error:{exc}",
+                }
 
             chars.append({
                 "char": char,
@@ -258,9 +278,13 @@ def audit_paths(paths: list[Path]) -> dict[str, Any]:
             })
 
         missing_count = sum(1 for item in chars if item["status"] != "present")
+        outlines = sorted({source.outline for source in sources})
+        repair_supported = all(outline in {"truetype", "cff"} for outline in outlines)
         families.append({
             "family": family_name,
             "masters": len(sources),
+            "outlines": outlines,
+            "repair_supported": repair_supported,
             "missing_count": missing_count,
             "complete": missing_count == 0,
             "chars": chars,
@@ -433,6 +457,96 @@ def _build_stroke_glyph(font: TTFont, base_name: str, recipe: dict[str, Any]):
     return pen.glyph()
 
 
+def _cff_context(font: TTFont, base_name: str):
+    top = font["CFF "].cff.topDictIndex[0]
+    char_strings = top.CharStrings
+    _, fd_index = char_strings.getItemAndSelector(base_name)
+
+    if fd_index is not None and hasattr(top, "FDArray"):
+        private = top.FDArray[fd_index].Private
+    else:
+        private = top.Private
+
+    return top, char_strings, private, font["CFF "].cff.GlobalSubrs, fd_index
+
+
+def _build_cff_charstring(font: TTFont, base_name: str, recipe: dict[str, Any], kind: str):
+    glyph_set = font.getGlyphSet()
+    width = font["hmtx"].metrics[base_name][0]
+    top, _, private, global_subrs, fd_index = _cff_context(font, base_name)
+    pen = T2CharStringPen(width, glyph_set)
+    glyph_set[base_name].draw(pen)
+
+    if kind == "stroke":
+        x = float(recipe.get("stroke_x", 0.0)) + float(recipe.get("dx", 0.0))
+        y = float(recipe.get("stroke_y", 0.0)) + float(recipe.get("dy", 0.0))
+        scale = max(0.1, float(recipe.get("scale", 1.0)))
+        width_line = float(recipe.get("stroke_width", font["head"].unitsPerEm * 0.5)) * scale
+        thickness = max(1.0, float(recipe.get("thickness", font["head"].unitsPerEm * 0.055))) * scale
+        rotation = math.radians(float(recipe.get("rotation", -10.0)))
+        vx = math.cos(rotation) * width_line
+        vy = math.sin(rotation) * width_line
+        nx = -math.sin(rotation) * thickness / 2.0
+        ny = math.cos(rotation) * thickness / 2.0
+        points = [
+            (x + nx, y + ny),
+            (x + vx + nx, y + vy + ny),
+            (x + vx - nx, y + vy - ny),
+            (x - nx, y - ny),
+        ]
+        pen.moveTo(points[0])
+        for point in points[1:]:
+            pen.lineTo(point)
+        pen.closePath()
+    else:
+        mark_name = recipe.get("mark") or _find_mark(font, kind)
+        if mark_name and not recipe.get("geometry", False):
+            scale = float(recipe.get("scale", 1.0))
+            angle = math.radians(float(recipe.get("rotation", 0.0)))
+            cos_a = math.cos(angle) * scale
+            sin_a = math.sin(angle) * scale
+            dx = float(recipe.get("dx", 0.0))
+            dy = float(recipe.get("dy", 0.0))
+            transformed = TransformPen(
+                pen,
+                (cos_a, sin_a, -sin_a, cos_a, dx, dy),
+            )
+            glyph_set[mark_name].draw(transformed)
+        else:
+            _draw_geometry_mark(
+                pen,
+                kind,
+                recipe,
+                float(font["head"].unitsPerEm),
+            )
+
+    return pen.getCharString(private=private, globalSubrs=global_subrs), top, fd_index
+
+
+def _add_cff_glyph(font: TTFont, glyph_name: str, base_name: str, recipe: dict[str, Any], kind: str):
+    order = list(font.getGlyphOrder())
+    if glyph_name in order:
+        return
+
+    char_string, top, fd_index = _build_cff_charstring(font, base_name, recipe, kind)
+    char_strings = top.CharStrings
+
+    if char_strings.charStringsAreIndexed:
+        char_strings.charStrings[glyph_name] = len(char_strings.charStringsIndex)
+        char_strings.charStringsIndex.append(char_string)
+    else:
+        char_strings.charStrings[glyph_name] = char_string
+
+    top.charset.append(glyph_name)
+
+    if fd_index is not None and hasattr(top, "FDSelect"):
+        top.FDSelect.append(fd_index)
+
+    order.append(glyph_name)
+    font.setGlyphOrder(order)
+    font["maxp"].numGlyphs = len(order)
+
+
 def repair_paths(paths: list[Path], output_dir: Path, recipes: list[dict[str, Any]]) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
     recipe_map = {item["char"]: item for item in recipes if item.get("char") in POLISH_SPECS}
@@ -449,8 +563,10 @@ def repair_paths(paths: list[Path], output_dir: Path, recipes: list[dict[str, An
 
         for source in sources:
             font = TTFont(source.path, lazy=False)
-            if "glyf" not in font:
-                raise ValueError(f"Glyph Lab currently supports TrueType glyf sources only: {source.path.name}")
+            if "glyf" not in font and "CFF " not in font:
+                raise ValueError(
+                    f"Glyph Lab supports TrueType glyf and static CFF OTF sources: {source.path.name}"
+                )
 
             order = list(font.getGlyphOrder())
             cmap = _best_cmap(font)
@@ -469,19 +585,24 @@ def repair_paths(paths: list[Path], output_dir: Path, recipes: list[dict[str, An
                     raise ValueError(f"{source.path.name}: {char} is not automatically repairable")
 
                 glyph_name = _generated_name(char)
-                if spec["kind"] == "stroke":
-                    glyph = _build_stroke_glyph(font, base_name, resolved)
-                else:
-                    mark_name = resolved.get("mark") or _find_mark(font, spec["kind"])
-                    if mark_name and not resolved.get("geometry", False):
-                        glyph = _build_accent_glyph(font, base_name, mark_name, resolved)
+
+                if "glyf" in font:
+                    if spec["kind"] == "stroke":
+                        glyph = _build_stroke_glyph(font, base_name, resolved)
                     else:
-                        glyph = _build_geometry_glyph(font, base_name, resolved)
+                        mark_name = resolved.get("mark") or _find_mark(font, spec["kind"])
+                        if mark_name and not resolved.get("geometry", False):
+                            glyph = _build_accent_glyph(font, base_name, mark_name, resolved)
+                        else:
+                            glyph = _build_geometry_glyph(font, base_name, resolved)
 
-                if glyph_name not in order:
-                    order.append(glyph_name)
+                    if glyph_name not in order:
+                        order.append(glyph_name)
+                    font["glyf"].glyphs[glyph_name] = glyph
+                else:
+                    _add_cff_glyph(font, glyph_name, base_name, resolved, spec["kind"])
+                    order = list(font.getGlyphOrder())
 
-                font["glyf"].glyphs[glyph_name] = glyph
                 font["hmtx"].metrics[glyph_name] = font["hmtx"].metrics[base_name]
                 _add_unicode_mapping(font, ord(char), glyph_name)
                 repaired.append({
@@ -491,7 +612,9 @@ def repair_paths(paths: list[Path], output_dir: Path, recipes: list[dict[str, An
                 })
 
             font.setGlyphOrder(order)
-            font["glyf"].glyphOrder = list(order)
+            if "glyf" in font:
+                font["glyf"].glyphOrder = list(order)
+            font["maxp"].numGlyphs = len(order)
 
             out_path = family_dir / source.path.name
             font.save(out_path, reorderTables=True)

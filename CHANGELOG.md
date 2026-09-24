@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.0-alpha.7 - 2026-09-24
+
+### Fixed
+- Polish glyph audit now survives unsupported Variable Font source outlines
+- single-master fonts no longer allow a Variable Font build that is guaranteed to fail
+- engine errors are unwrapped into readable desktop messages
+- analysis copy no longer claims unsupported sources are ready to build
+
+### Added
+- direct static CFF OTF Glyph Lab repair
+- CFF repair keeps existing CFF outlines and adds only missing glyph charstrings
+- direct download of a repaired single static font
+- CI coverage for CFF OTF missing-glyph detection and repair
+
+### Known
+- CFF/CFF2 source masters are still not supported for Variable Font compilation
+- CFF2 Glyph Lab repair is not enabled yet
+- Windows installers remain unsigned and can trigger SmartScreen
+
+# Changelog
+
 ## 0.1.0-alpha.6 - 2026-09-24
 
 ### Added

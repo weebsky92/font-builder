@@ -1,6 +1,6 @@
 # Font Builder - Project
 
-Version: `0.1.0-alpha.2`
+Version: `0.1.0-alpha.3`
 License: MIT
 Repository: `weebsky92/font-builder`
 
@@ -56,23 +56,50 @@ README, license files, system metadata, images and unsupported documents are ign
 
 The engine does not depend on the desktop UI so it can be reused by another application later.
 
+## UI / localization
+
+Alpha 3 replaces the raw JSON result view with a user-facing summary:
+- detected family
+- number of variants
+- number/range of weights
+- Roman / Italic counts
+- build mode
+- ignored file count
+- build success and output ZIP path
+
+Desktop UI languages:
+- Polish
+- English
+
+Language selection is stored locally in the app.
+
 ## Current limitations
 
 - Variable builds currently require TrueType `glyf` source masters.
 - CFF/CFF2/OTF sources are detected and analyzed, but variable compilation from CFF/CFF2 source masters is not enabled yet.
 - Discrete builds currently require the same glyph set across masters.
 - Production code signing and Apple notarization are not configured yet.
+- Unsigned Windows installers can trigger Microsoft Defender SmartScreen. Production signing is a separate release step.
 
 ## Verified test
 
-The engine has been tested end-to-end with an 18-master Barlow Condensed ZIP containing Roman and Italic weights 100-900 plus ignored metadata files.
+Windows 11:
+- installer launches
+- desktop app opens
+- family analysis works
+- Barlow Condensed build completes
+- output Variable Font package is created successfully
 
-The test produced and reopened TTF, CFF OTF, WOFF and WOFF2 outputs successfully.
+GitHub Actions:
+- macOS build passes
+- Windows build passes
+- source package passes
 
 ## Next checkpoint
 
-`0.1.0-alpha.3`
+`0.1.0-alpha.4`
 
-- first GitHub Actions build on macOS and Windows
-- fix platform-specific sidecar or packaging issues if CI finds any
-- start PL/EN UI localization layer
+- runtime test of alpha 3 UX on Windows and macOS
+- replace temporary development icon with final artwork
+- plan production signing / SmartScreen / notarization
+- normalize differing glyph sets across masters

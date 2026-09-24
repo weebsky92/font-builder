@@ -9,36 +9,45 @@
   <main class="shell">
     <header>
       <div>
-        <p class="eyebrow">LOCAL FONT TOOL</p>
-        <h1>Font Builder <span>α2</span></h1>
-        <p>Wrzuć fonty, folder albo ZIP. Reszta dzieje się lokalnie.</p>
+        <p class="eyebrow" data-i18n="eyebrow">LOKALNE NARZĘDZIE DO FONTÓW</p>
+        <h1>Font Builder <span>α3</span></h1>
+        <p data-i18n="subtitle">Wrzuć fonty, folder albo ZIP. Reszta dzieje się lokalnie.</p>
       </div>
-      <div class="badge">macOS + Windows</div>
+
+      <div class="header-controls">
+        <div class="lang-switch" aria-label="Language">
+          <button class="lang-btn" data-lang="pl">PL</button>
+          <button class="lang-btn" data-lang="en">EN</button>
+        </div>
+        <div class="badge">macOS + Windows</div>
+      </div>
     </header>
 
     <section id="dropzone" class="dropzone">
       <div class="dropicon">Aa</div>
-      <h2>Upuść fonty albo ZIP tutaj</h2>
+      <h2 data-i18n="drop.title">Upuść fonty albo ZIP tutaj</h2>
       <p>TTF · OTF · WOFF · WOFF2 · ZIP</p>
-      <button id="pick">Wybierz pliki / ZIP</button>
+      <button id="pick" data-i18n="drop.pick">Wybierz pliki / ZIP</button>
     </section>
 
     <section class="panel">
       <div class="panelhead">
-        <div><span class="step">01</span><strong>Wejście</strong></div>
-        <button class="ghost" id="clear">Wyczyść</button>
+        <div><span class="step">01</span><strong data-i18n="input.title">Wejście</strong></div>
+        <button class="ghost" id="clear" data-i18n="input.clear">Wyczyść</button>
       </div>
       <div id="files" class="files empty">Brak plików.</div>
     </section>
 
     <section class="actions">
-      <button id="analyze" disabled>ANALIZUJ</button>
-      <button id="build" disabled>BUILD VARIABLE FONT</button>
+      <button id="analyze" disabled data-i18n="actions.analyze">ANALIZUJ</button>
+      <button id="build" disabled data-i18n="actions.build">ZBUDUJ FONT ZMIENNY</button>
     </section>
 
-    <section class="panel">
-      <div class="panelhead"><div><span class="step">02</span><strong>Analiza / build</strong></div></div>
-      <pre id="output">Czekam na pliki…</pre>
+    <section class="panel status-panel">
+      <div class="panelhead">
+        <div><span class="step">02</span><strong data-i18n="status.title">Status</strong></div>
+      </div>
+      <div id="status" class="status"></div>
     </section>
   </main>
   <script type="module" src="/src/main.js"></script>

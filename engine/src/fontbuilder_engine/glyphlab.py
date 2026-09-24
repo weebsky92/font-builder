@@ -117,6 +117,7 @@ def _default_recipe(font: TTFont, char: str) -> dict[str, Any]:
     bx0, by0, bx1, by1 = _bounds(font, base_name)
     bw = max(1.0, bx1 - bx0)
     bh = max(1.0, by1 - by0)
+    base_cx = (bx0 + bx1) / 2.0
 
     if spec["kind"] == "stroke":
         return {
@@ -169,7 +170,6 @@ def _default_recipe(font: TTFont, char: str) -> dict[str, Any]:
 
     mx0, my0, mx1, my1 = _bounds(font, mark_name)
     mark_cx = (mx0 + mx1) / 2.0
-    base_cx = (bx0 + bx1) / 2.0
     scale = 1.0
 
     if spec["kind"] in {"acute", "dot"}:

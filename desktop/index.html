@@ -6,50 +6,82 @@
   <title>Font Builder</title>
 </head>
 <body>
-  <main class="shell">
-    <header>
+  <main class="app-shell">
+    <header class="topbar">
       <div>
         <p class="eyebrow" data-i18n="eyebrow">LOKALNE NARZĘDZIE DO FONTÓW</p>
-        <h1>Font Builder <span>α3</span></h1>
-        <p data-i18n="subtitle">Wrzuć fonty, folder albo ZIP. Reszta dzieje się lokalnie.</p>
+        <h1>Font Builder <span>α4</span></h1>
       </div>
 
-      <div class="header-controls">
-        <div class="lang-switch" aria-label="Language">
-          <button class="lang-btn" data-lang="pl">PL</button>
-          <button class="lang-btn" data-lang="en">EN</button>
-        </div>
-        <div class="badge">macOS + Windows</div>
+      <div class="lang-switch" aria-label="Language">
+        <button class="lang-btn" data-lang="pl">PL</button>
+        <button class="lang-btn" data-lang="en">EN</button>
       </div>
     </header>
 
-    <section id="dropzone" class="dropzone">
-      <div class="dropicon">Aa</div>
-      <h2 data-i18n="drop.title">Upuść fonty albo ZIP tutaj</h2>
-      <p>TTF · OTF · WOFF · WOFF2 · ZIP</p>
-      <button id="pick" data-i18n="drop.pick">Wybierz pliki / ZIP</button>
-    </section>
+    <nav class="stepper" aria-label="Progress">
+      <button class="step-tab active" data-step="1" disabled>
+        <span>01</span>
+        <strong data-i18n="step.input">Dodaj</strong>
+      </button>
+      <div class="step-line"></div>
+      <button class="step-tab" data-step="2" disabled>
+        <span>02</span>
+        <strong data-i18n="step.analysis">Sprawdź</strong>
+      </button>
+      <div class="step-line"></div>
+      <button class="step-tab" data-step="3" disabled>
+        <span>03</span>
+        <strong data-i18n="step.download">Pobierz</strong>
+      </button>
+    </nav>
 
-    <section class="panel">
-      <div class="panelhead">
-        <div><span class="step">01</span><strong data-i18n="input.title">Wejście</strong></div>
-        <button class="ghost" id="clear" data-i18n="input.clear">Wyczyść</button>
+    <section id="view-input" class="view active">
+      <div id="dropzone" class="dropzone">
+        <div class="dropicon">Aa</div>
+        <h2 data-i18n="drop.title">Upuść fonty albo ZIP tutaj</h2>
+        <p data-i18n="drop.subtitle">TTF · OTF · WOFF · WOFF2 · ZIP · folder</p>
+
+        <div class="drop-actions">
+          <button id="pick-files" data-i18n="drop.pickFiles">Wybierz pliki / ZIP</button>
+          <button id="pick-folder" class="secondary" data-i18n="drop.pickFolder">Wybierz folder</button>
+        </div>
       </div>
-      <div id="files" class="files empty">Brak plików.</div>
-    </section>
 
-    <section class="actions">
-      <button id="analyze" disabled data-i18n="actions.analyze">ANALIZUJ</button>
-      <button id="build" disabled data-i18n="actions.build">ZBUDUJ FONT ZMIENNY</button>
-    </section>
-
-    <section class="panel status-panel">
-      <div class="panelhead">
-        <div><span class="step">02</span><strong data-i18n="status.title">Status</strong></div>
+      <div id="input-summary" class="input-summary empty">
+        <span data-i18n="input.empty">Nic jeszcze nie dodano.</span>
       </div>
-      <div id="status" class="status"></div>
+
+      <div class="bottom-actions">
+        <button id="clear" class="secondary" data-i18n="input.clear">Wyczyść</button>
+        <button id="analyze" disabled data-i18n="actions.analyze">ANALIZUJ</button>
+      </div>
+    </section>
+
+    <section id="view-analysis" class="view">
+      <div id="analysis-content" class="stage-card"></div>
+
+      <div class="bottom-actions">
+        <button id="back-input" class="secondary" data-i18n="actions.back">WSTECZ</button>
+        <button id="build" data-i18n="actions.build">ZBUDUJ FONT ZMIENNY</button>
+      </div>
+    </section>
+
+    <section id="view-result" class="view">
+      <div id="result-content" class="stage-card"></div>
+
+      <div class="bottom-actions">
+        <button id="new-build" class="secondary" data-i18n="actions.newBuild">NOWY BUILD</button>
+        <button id="save-zip" data-i18n="actions.saveZip">POBIERZ ZIP</button>
+      </div>
+    </section>
+
+    <section id="overlay" class="overlay hidden">
+      <div class="spinner"></div>
+      <strong id="overlay-text"></strong>
     </section>
   </main>
+
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

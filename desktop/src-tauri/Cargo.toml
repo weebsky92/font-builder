@@ -1,6 +1,6 @@
 [package]
 name = "font-builder-desktop-alpha"
-version = "0.1.0-3"
+version = "0.1.0-4"
 description = "Cross-platform local font builder shell"
 edition = "2021"
 

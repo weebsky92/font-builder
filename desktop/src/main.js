@@ -1,30 +1,28 @@
 import './style.css';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
-import { open } from '@tauri-apps/plugin-dialog';
+import { open, save } from '@tauri-apps/plugin-dialog';
 import { translations } from './i18n.js';
 
 const savedLang = localStorage.getItem('fontbuilder.lang');
 const detectedLang = navigator.language?.toLowerCase().startsWith('pl') ? 'pl' : 'en';
 
 const state = {
+  step: 1,
   paths: [],
   analysis: null,
   build: null,
-  phase: 'idle',
-  error: null,
+  buildDir: null,
   lang: savedLang || detectedLang
 };
 
 const $ = (id) => document.getElementById(id);
-const filesEl = $('files');
-const statusEl = $('status');
 
 function t(key) {
   return translations[state.lang]?.[key] ?? translations.en[key] ?? key;
 }
 
-function escapeHtml(value) {
+function esc(value) {
   return String(value ?? '').replace(/[&<>'"]/g, c => ({
     '&': '&amp;',
     '<': '&lt;',
@@ -34,49 +32,14 @@ function escapeHtml(value) {
   }[c]));
 }
 
-function setLanguage(lang) {
-  if (!translations[lang]) return;
-  state.lang = lang;
-  localStorage.setItem('fontbuilder.lang', lang);
-  document.documentElement.lang = lang;
-
-  document.querySelectorAll('[data-i18n]').forEach((el) => {
-    el.textContent = t(el.dataset.i18n);
-  });
-
-  document.querySelectorAll('.lang-btn').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.lang === lang);
-  });
-
-  renderFiles();
-  renderStatus();
+function basename(path) {
+  return String(path).split(/[\\/]/).pop() || 'file';
 }
 
-function renderFiles() {
-  if (!state.paths.length) {
-    filesEl.className = 'files empty';
-    filesEl.textContent = t('input.empty');
-  } else {
-    filesEl.className = 'files';
-    filesEl.innerHTML = state.paths
-      .map(p => `<div><span>✓</span><code>${escapeHtml(p)}</code></div>`)
-      .join('');
-  }
-
-  $('analyze').disabled = !state.paths.length || state.phase === 'analyzing' || state.phase === 'building';
-  $('build').disabled = !state.analysis || state.phase === 'analyzing' || state.phase === 'building';
-}
-
-function addPaths(paths) {
-  for (const p of paths || []) {
-    if (!state.paths.includes(p)) state.paths.push(p);
-  }
-  state.analysis = null;
-  state.build = null;
-  state.error = null;
-  state.phase = state.paths.length ? 'idle' : 'idle';
-  renderFiles();
-  renderStatus();
+function ext(path) {
+  const name = basename(path);
+  const pos = name.lastIndexOf('.');
+  return pos >= 0 ? name.slice(pos + 1).toLowerCase() : '';
 }
 
 function modeLabel(mode) {
@@ -85,237 +48,280 @@ function modeLabel(mode) {
   return t('analysis.unsupported');
 }
 
-function formatCount(value, suffix) {
-  return `${value} ${suffix}`;
+function setLanguage(lang) {
+  if (!translations[lang]) return;
+  state.lang = lang;
+  localStorage.setItem('fontbuilder.lang', lang);
+  document.documentElement.lang = lang;
+
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.lang === lang);
+  });
+
+  render();
 }
 
-function analysisCard(family) {
-  const fonts = family.fonts || [];
-  const weights = [...new Set(fonts.map(font => Number(font.weight)).filter(Number.isFinite))].sort((a, b) => a - b);
-  const italics = fonts.filter(font => font.italic).length;
-  const romans = fonts.length - italics;
-  const minWeight = weights.length ? weights[0] : '—';
-  const maxWeight = weights.length ? weights[weights.length - 1] : '—';
-  const note = family.build_mode === 'true-variable' ? t('analysis.smoothNote') : t('analysis.discreteNote');
+function showOverlay(key) {
+  $('overlay-text').textContent = t(key);
+  $('overlay').classList.remove('hidden');
+}
 
-  return `
-    <article class="family-card">
-      <div class="family-head">
-        <div>
-          <span class="success-dot"></span>
-          <span class="status-label">${escapeHtml(t('analysis.ready'))}</span>
-        </div>
-        <strong>${escapeHtml(family.family)}</strong>
+function hideOverlay() {
+  $('overlay').classList.add('hidden');
+}
+
+function setStep(step) {
+  state.step = step;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  $({1:'view-input',2:'view-analysis',3:'view-result'}[step]).classList.add('active');
+
+  document.querySelectorAll('.step-tab').forEach(tab => {
+    const n = Number(tab.dataset.step);
+    tab.classList.toggle('active', n === step);
+    tab.classList.toggle('done', n < step);
+  });
+}
+
+function renderInput() {
+  const box = $('input-summary');
+
+  if (!state.paths.length) {
+    box.className = 'input-summary empty';
+    box.innerHTML = '<span>' + esc(t('input.empty')) + '</span>';
+  } else {
+    const preview = state.paths.slice(0, 3);
+    const extra = state.paths.length - preview.length;
+
+    box.className = 'input-summary';
+    box.innerHTML = `
+      <div class="input-count">
+        <strong>${state.paths.length}</strong>
+        <span>${esc(t('input.items'))}</span>
       </div>
-
-      <div class="metrics">
-        <div class="metric">
-          <span>${escapeHtml(t('analysis.variants'))}</span>
-          <strong>${fonts.length}</strong>
-          <small>${escapeHtml(formatCount(romans, t('analysis.romanSuffix')))} · ${escapeHtml(formatCount(italics, t('analysis.italicSuffix')))}</small>
-        </div>
-        <div class="metric">
-          <span>${escapeHtml(t('analysis.weights'))}</span>
-          <strong>${weights.length}</strong>
-          <small>${escapeHtml(weights.join(' · ') || '—')}</small>
-        </div>
-        <div class="metric">
-          <span>${escapeHtml(t('analysis.weightRange'))}</span>
-          <strong>${escapeHtml(minWeight)}–${escapeHtml(maxWeight)}</strong>
-          <small>wght</small>
-        </div>
-        <div class="metric">
-          <span>${escapeHtml(t('analysis.mode'))}</span>
-          <strong class="metric-text">${escapeHtml(modeLabel(family.build_mode))}</strong>
-          <small>${family.compatible ? '✓' : 'AUTO'}</small>
-        </div>
+      <div class="input-paths">
+        ${preview.map(p => '<code>' + esc(p) + '</code>').join('')}
+        ${extra > 0 ? '<small>+' + extra + ' ' + esc(t('input.more')) + '</small>' : ''}
       </div>
+    `;
+  }
 
-      <div class="info-note">${escapeHtml(note)}</div>
-    </article>
-  `;
+  $('analyze').disabled = !state.paths.length;
+}
+
+function analysisData() {
+  return state.analysis?.families?.[0] || null;
 }
 
 function renderAnalysis() {
-  const families = state.analysis?.families || [];
-  const ignored = state.analysis?.ignored?.length || 0;
+  const family = analysisData();
+  if (!family) return;
 
-  statusEl.innerHTML = `
-    <div class="status-summary">
+  const fonts = family.fonts || [];
+  const weights = [...new Set(fonts.map(f => Number(f.weight)).filter(Number.isFinite))].sort((a,b) => a-b);
+  const italics = fonts.filter(f => f.italic).length;
+  const romans = fonts.length - italics;
+  const mode = family.build_mode;
+  const note = mode === 'true-variable' ? t('analysis.smoothNote') : t('analysis.discreteNote');
+
+  $('analysis-content').innerHTML = `
+    <div class="stage-head">
       <div>
-        <span class="success-dot"></span>
-        <strong>${families.length} ${escapeHtml(t('analysis.familiesFound').toLowerCase())}</strong>
+        <span class="status-pill success">✓ ${esc(t('analysis.title'))}</span>
+        <h2>${esc(family.family)}</h2>
       </div>
-      <span>${escapeHtml(t('analysis.ignored'))}: <strong>${ignored}</strong></span>
+      <div class="subtle">${esc(t('analysis.ignored'))}: <strong>${state.analysis?.ignored?.length || 0}</strong></div>
     </div>
-    <div class="family-list">
-      ${families.map(analysisCard).join('')}
+
+    <div class="metric-grid">
+      <div class="metric"><span>${esc(t('analysis.variants'))}</span><strong>${fonts.length}</strong><small>${romans} roman · ${italics} italic</small></div>
+      <div class="metric"><span>${esc(t('analysis.weights'))}</span><strong>${weights.length}</strong><small>${esc(weights.join(' · ') || '—')}</small></div>
+      <div class="metric"><span>${esc(t('analysis.range'))}</span><strong>${weights[0] ?? '—'}–${weights.at(-1) ?? '—'}</strong><small>wght</small></div>
+      <div class="metric"><span>${esc(t('analysis.mode'))}</span><strong class="metric-text">${esc(modeLabel(mode))}</strong><small>AUTO</small></div>
     </div>
+
+    <div class="stage-note">${esc(note)}</div>
   `;
 }
 
-function buildFormats(result) {
-  const formats = new Set();
+function collectOutputs() {
+  const result = state.build?.results?.[0];
+  if (!result) return [];
+
+  const outputs = [];
+  if (result.zip) outputs.push({ type: 'zip', path: result.zip });
+
   for (const path of result.produced || []) {
-    const match = String(path).match(/\.([a-z0-9]+)$/i);
-    if (match) formats.add(match[1].toUpperCase());
+    const e = ext(path);
+    if (['ttf','otf','woff','woff2','css'].includes(e)) {
+      outputs.push({ type: e, path });
+    }
   }
-  if (result.zip) formats.add('ZIP');
-  return [...formats].filter(x => x !== 'JSON').join(' · ');
+
+  return outputs;
 }
 
-function renderBuild() {
-  const results = state.build?.results || [];
+function renderResult() {
+  const result = state.build?.results?.[0];
+  if (!result) return;
 
-  statusEl.innerHTML = `
-    <div class="build-success">
+  const outputs = collectOutputs();
+
+  $('result-content').innerHTML = `
+    <div class="result-hero">
       <div class="success-icon">✓</div>
       <div>
-        <strong>${escapeHtml(t('build.success'))}</strong>
-        <p>${escapeHtml(t('build.successText'))}</p>
+        <span class="status-pill success">${esc(t('result.title'))}</span>
+        <h2>${esc(result.family)}</h2>
+        <p>${esc(t('result.subtitle'))}</p>
       </div>
     </div>
 
-    <div class="family-list">
-      ${results.map(result => `
-        <article class="family-card build-card">
-          <div class="family-head">
-            <div><span class="success-dot"></span><span class="status-label">${escapeHtml(t('build.done'))}</span></div>
-            <strong>${escapeHtml(result.family)}</strong>
-          </div>
+    <div class="result-meta">
+      <div><span>${esc(t('result.mode'))}</span><strong>${esc(modeLabel(result.mode))}</strong></div>
+      <div><span>${esc(t('result.available'))}</span><strong>${outputs.length}</strong></div>
+    </div>
 
-          <div class="build-grid">
-            <div>
-              <span>${escapeHtml(t('build.mode'))}</span>
-              <strong>${escapeHtml(modeLabel(result.mode))}</strong>
-            </div>
-            <div>
-              <span>${escapeHtml(t('build.formats'))}</span>
-              <strong>${escapeHtml(buildFormats(result) || 'TTF · OTF · WOFF · WOFF2 · CSS · ZIP')}</strong>
-            </div>
-          </div>
-
-          ${result.zip ? `
-            <div class="output-path">
-              <span>${escapeHtml(t('build.output'))}</span>
-              <code>${escapeHtml(result.zip)}</code>
-            </div>
-          ` : ''}
-        </article>
+    <div class="download-grid">
+      ${outputs.map(item => `
+        <button class="download-card ${item.type === 'zip' ? 'primary' : ''}" data-save-path="${esc(item.path)}" data-save-type="${esc(item.type)}">
+          <span>${esc(t('format.' + item.type))}</span>
+          <small>${esc(basename(item.path))}</small>
+        </button>
       `).join('')}
     </div>
+
+    <p class="save-hint">${esc(t('result.saveHint'))}</p>
+    <div id="save-message" class="save-message"></div>
   `;
+
+  document.querySelectorAll('[data-save-path]').forEach(button => {
+    button.addEventListener('click', () => saveOutput(button.dataset.savePath, button.dataset.saveType));
+  });
 }
 
-function renderLoading(messageKey) {
-  statusEl.innerHTML = `
-    <div class="loading-state">
-      <span class="spinner"></span>
-      <strong>${escapeHtml(t(messageKey))}</strong>
-    </div>
-  `;
+function render() {
+  renderInput();
+  if (state.step === 2) renderAnalysis();
+  if (state.step === 3) renderResult();
+  setStep(state.step);
 }
 
-function renderError() {
-  statusEl.innerHTML = `
-    <div class="error-state">
-      <strong>${escapeHtml(t('error.title'))}</strong>
-      <p>${escapeHtml(t('error.text'))}</p>
-      <code>${escapeHtml(state.error)}</code>
-    </div>
-  `;
+function resetAll() {
+  state.step = 1;
+  state.paths = [];
+  state.analysis = null;
+  state.build = null;
+  state.buildDir = null;
+  render();
 }
 
-function renderStatus() {
-  if (state.phase === 'analyzing') return renderLoading('status.analyzing');
-  if (state.phase === 'building') return renderLoading('status.building');
-  if (state.phase === 'error') return renderError();
-  if (state.phase === 'built' && state.build) return renderBuild();
-  if (state.phase === 'analyzed' && state.analysis) return renderAnalysis();
-
-  statusEl.innerHTML = `
-    <div class="empty-state">
-      <div class="empty-orb">Aa</div>
-      <span>${escapeHtml(t('status.idle'))}</span>
-    </div>
-  `;
+function addPaths(paths) {
+  for (const p of paths || []) {
+    if (!state.paths.includes(p)) state.paths.push(p);
+  }
+  state.analysis = null;
+  state.build = null;
+  state.buildDir = null;
+  state.step = 1;
+  render();
 }
 
-$('pick').addEventListener('click', async () => {
+async function analyze() {
+  showOverlay('loading.analyze');
+
+  try {
+    state.analysis = await invoke('run_engine', { args: ['analyze', ...state.paths] });
+    state.step = 2;
+    render();
+  } catch (error) {
+    alert(t('error.title') + '\n\n' + String(error));
+  } finally {
+    hideOverlay();
+  }
+}
+
+async function build() {
+  showOverlay('loading.build');
+
+  try {
+    state.buildDir = await invoke('create_build_dir');
+    state.build = await invoke('run_engine', {
+      args: [
+        'build',
+        ...state.paths,
+        '-o', state.buildDir,
+        '--mode', 'auto',
+        '--formats', 'ttf,otf,woff,woff2,css,zip'
+      ]
+    });
+    state.step = 3;
+    render();
+  } catch (error) {
+    alert(t('error.title') + '\n\n' + String(error));
+  } finally {
+    hideOverlay();
+  }
+}
+
+async function saveOutput(source, type) {
+  const extension = ext(source);
+  const target = await save({
+    defaultPath: basename(source),
+    filters: [{ name: String(type).toUpperCase(), extensions: extension ? [extension] : [] }]
+  });
+
+  if (!target) return;
+
+  const message = $('save-message');
+
+  try {
+    await invoke('copy_output_file', { source, destination: target });
+    message.textContent = t('result.saved') + ': ' + target;
+    message.className = 'save-message success';
+  } catch (error) {
+    message.textContent = t('result.saveError') + ' ' + String(error);
+    message.className = 'save-message error';
+  }
+}
+
+$('pick-files').addEventListener('click', async () => {
   const selected = await open({
     multiple: true,
     directory: false,
-    filters: [{ name: 'Fonts / ZIP', extensions: ['ttf', 'otf', 'woff', 'woff2', 'zip'] }]
+    filters: [{ name: 'Fonts / ZIP', extensions: ['ttf','otf','woff','woff2','zip'] }]
   });
 
   if (!selected) return;
   addPaths(Array.isArray(selected) ? selected : [selected]);
 });
 
-$('clear').addEventListener('click', () => {
-  state.paths = [];
-  state.analysis = null;
-  state.build = null;
-  state.error = null;
-  state.phase = 'idle';
-  renderFiles();
-  renderStatus();
+$('pick-folder').addEventListener('click', async () => {
+  const selected = await open({ directory: true, multiple: false });
+  if (!selected) return;
+  addPaths([selected]);
 });
 
-$('analyze').addEventListener('click', async () => {
-  state.phase = 'analyzing';
-  state.error = null;
-  renderFiles();
-  renderStatus();
+$('clear').addEventListener('click', resetAll);
+$('analyze').addEventListener('click', analyze);
+$('back-input').addEventListener('click', () => { state.step = 1; render(); });
+$('build').addEventListener('click', build);
+$('new-build').addEventListener('click', resetAll);
 
-  try {
-    state.analysis = await invoke('run_engine', { args: ['analyze', ...state.paths] });
-    state.build = null;
-    state.phase = 'analyzed';
-  } catch (e) {
-    state.error = String(e);
-    state.phase = 'error';
-  }
-
-  renderFiles();
-  renderStatus();
+$('save-zip').addEventListener('click', async () => {
+  const zip = collectOutputs().find(item => item.type === 'zip');
+  if (zip) await saveOutput(zip.path, zip.type);
 });
 
-$('build').addEventListener('click', async () => {
-  const dir = await open({ directory: true, multiple: false });
-  if (!dir) return;
-
-  state.phase = 'building';
-  state.error = null;
-  renderFiles();
-  renderStatus();
-
-  try {
-    state.build = await invoke('run_engine', {
-      args: [
-        'build',
-        ...state.paths,
-        '-o', dir,
-        '--mode', 'auto',
-        '--formats', 'ttf,otf,woff,woff2,css,zip'
-      ]
-    });
-    state.phase = 'built';
-  } catch (e) {
-    state.error = String(e);
-    state.phase = 'error';
-  }
-
-  renderFiles();
-  renderStatus();
-});
-
-document.querySelectorAll('.lang-btn').forEach((button) => {
+document.querySelectorAll('.lang-btn').forEach(button => {
   button.addEventListener('click', () => setLanguage(button.dataset.lang));
 });
 
 const webview = getCurrentWebview();
-webview.onDragDropEvent((event) => {
+webview.onDragDropEvent(event => {
   if (event.payload.type === 'drop') addPaths(event.payload.paths);
 
   document.body.classList.toggle(
@@ -326,8 +332,7 @@ webview.onDragDropEvent((event) => {
   if (event.payload.type === 'leave' || event.payload.type === 'drop') {
     document.body.classList.remove('dragging');
   }
-}).catch((error) => {
-  console.error('Drag and drop initialization failed:', error);
-});
+}).catch(console.error);
 
 setLanguage(state.lang);
+render();

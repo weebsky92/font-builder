@@ -65,11 +65,16 @@ jobs:
         run: |
           rm -rf desktop/src-tauri/engine build-engine
           mkdir -p desktop/src-tauri/engine
+          EXTRA_ARGS=""
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            EXTRA_ARGS="--windows-console-mode=disable"
+          fi
           python -m nuitka \
             --onefile \
             --follow-imports \
             --include-package=fontbuilder_engine \
             --assume-yes-for-downloads \
+            $EXTRA_ARGS \
             --output-dir=build-engine \
             --output-filename=${{ matrix.engine_name }} \
             engine/nuitka_entry.py

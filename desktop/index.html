@@ -10,12 +10,15 @@
     <header class="topbar">
       <div>
         <p class="eyebrow" data-i18n="eyebrow">LOKALNE NARZĘDZIE DO FONTÓW</p>
-        <h1>Font Builder <span>α4</span></h1>
+        <h1>Font Builder <span>α5</span></h1>
       </div>
 
-      <div class="lang-switch" aria-label="Language">
-        <button class="lang-btn" data-lang="pl">PL</button>
-        <button class="lang-btn" data-lang="en">EN</button>
+      <div class="top-actions">
+        <div class="lang-switch" aria-label="Language">
+          <button class="lang-btn" data-lang="pl">PL</button>
+          <button class="lang-btn" data-lang="en">EN</button>
+        </div>
+        <button id="settings-open" class="icon-btn" aria-label="Settings" title="Settings">⚙</button>
       </div>
     </header>
 
@@ -79,6 +82,62 @@
     <section id="overlay" class="overlay hidden">
       <div class="spinner"></div>
       <strong id="overlay-text"></strong>
+    </section>
+
+    <section id="settings-modal" class="modal hidden" aria-hidden="true">
+      <div class="modal-backdrop" data-close-settings></div>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <div class="modal-head">
+          <div>
+            <span class="modal-kicker" data-i18n="settings.kicker">APLIKACJA</span>
+            <h2 id="settings-title" data-i18n="settings.title">Ustawienia</h2>
+          </div>
+          <button id="settings-close" class="icon-btn close-btn" aria-label="Close">×</button>
+        </div>
+
+        <div class="settings-list">
+          <label class="setting-row">
+            <div>
+              <strong data-i18n="settings.tray">Zamykaj do zasobnika</strong>
+              <small data-i18n="settings.trayHelp">Kliknięcie X ukryje aplikację zamiast ją wyłączać.</small>
+            </div>
+            <input id="setting-tray" type="checkbox" />
+          </label>
+
+          <label class="setting-row">
+            <div>
+              <strong data-i18n="settings.autostart">Uruchamiaj przy starcie systemu</strong>
+              <small data-i18n="settings.autostartHelp">Font Builder uruchomi się automatycznie po zalogowaniu.</small>
+            </div>
+            <input id="setting-autostart" type="checkbox" />
+          </label>
+
+          <label class="setting-row">
+            <div>
+              <strong data-i18n="settings.cleanup">Czyść pliki tymczasowe przy starcie</strong>
+              <small data-i18n="settings.cleanupHelp">Usuwa poprzednie, niezapisane buildy z katalogu tymczasowego.</small>
+            </div>
+            <input id="setting-cleanup" type="checkbox" />
+          </label>
+
+          <label class="setting-row select-row">
+            <div>
+              <strong data-i18n="settings.mode">Domyślny tryb builda</strong>
+              <small data-i18n="settings.modeHelp">AUTO jest zalecane, pozostałe tryby służą głównie do testów.</small>
+            </div>
+            <select id="setting-mode">
+              <option value="auto" data-i18n="settings.modeAuto">AUTO</option>
+              <option value="true-variable" data-i18n="settings.modeSmooth">Pełna interpolacja</option>
+              <option value="discrete-variable" data-i18n="settings.modeDiscrete">Bezpieczne łączenie</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="modal-footer">
+          <span id="settings-message" class="settings-message"></span>
+          <button id="settings-save" data-i18n="settings.save">ZAPISZ USTAWIENIA</button>
+        </div>
+      </div>
     </section>
   </main>
 

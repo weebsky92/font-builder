@@ -1,6 +1,6 @@
 # Font Builder - Project
 
-Version: `0.1.0-alpha.4`
+Version: `0.1.0-alpha.5`
 License: MIT
 Repository: `weebsky92/font-builder`
 
@@ -14,93 +14,60 @@ Targets:
 
 Font processing is local. Runtime AI is not required.
 
-## Input
+## Current desktop flow
 
-- individual font files
-- multiple font files
-- directories
-- ZIP archives
-- nested ZIP archives within configured safety limits
-
-Recognized font containers:
-- TTF
-- OTF
-- WOFF
-- WOFF2
-
-README, license files, system metadata, images and unsupported documents are ignored automatically.
-
-## Build modes
-
-`TRUE VARIABLE` is used when masters are interpolation-compatible.
-
-`DISCRETE VARIABLE` preserves the supplied source outlines and switches between masters with OpenType FeatureVariations when topology differs.
-
-`AUTO` selects the safest available mode.
-
-## Output
-
-- Variable TTF
-- CFF OTF
-- WOFF
-- WOFF2
-- CSS
-- JSON build report
-- ZIP package
-
-## Architecture
-
-`engine/` contains the reusable Python + FontTools engine and JSON CLI.
-
-`desktop/` contains the Tauri 2 shell for macOS and Windows.
-
-The engine does not depend on the desktop UI so it can be reused by another application later.
-
-## Desktop flow
-
-Alpha 4 uses a three-step flow:
-
-1. Add fonts / folder / ZIP.
+1. Add font files, a folder or ZIP.
 2. Review detected family and build mode.
-3. Download the generated package or individual formats.
+3. Build to an isolated temporary directory.
+4. Save ZIP or individual TTF / OTF / WOFF / WOFF2 / CSS files.
 
-The desktop app no longer asks for an output folder before building. Output is created inside an isolated Font Builder temporary directory. The user explicitly chooses where to save ZIP / TTF / OTF / WOFF / WOFF2 / CSS afterwards.
+## Settings
 
-## Localization
+Alpha 5 adds persistent local desktop settings:
+- close to tray instead of quitting
+- launch at system startup
+- clean temporary Font Builder output on launch
+- default build mode: AUTO / true-variable / discrete-variable
 
-Desktop UI languages:
-- Polish
-- English
+The settings file lives in the application config directory and contains no secrets.
 
-Language selection is stored locally.
+## Tray
 
-## Verified
+A native tray menu is available on desktop:
+- Show Font Builder
+- Quit
 
-Windows 11 alpha 3:
-- installer launches
-- desktop app opens
-- family analysis works
-- Barlow Condensed build completes
-- output package is valid
+If `close_to_tray` is enabled, clicking the window close button hides the app instead of terminating it.
 
-GitHub Actions alpha 3:
-- macOS build passes
-- Windows build passes
-- source package passes
+## Windows polish
+
+Release builds use the Windows GUI subsystem, so the additional console window is not shown.
+
+## Glyph Lab - next milestone
+
+Planned for `0.1.0-alpha.6`.
+
+Goal: repair missing Polish glyphs before the Variable Font build.
+
+Initial Polish audit:
+- Ą Ć Ę Ł Ń Ó Ś Ź Ż
+- ą ć ę ł ń ó ś ź ż
+
+Planned workflow:
+1. audit glyph coverage across all masters
+2. show missing glyphs
+3. auto-build glyphs when base letter + suitable mark/component exists
+4. visual component editor for positioning/scaling accents, ogoneks, dots and strokes
+5. preview before applying
+6. write the repaired glyphs to every relevant static master
+7. continue through the normal Variable Font build
+
+This is intentionally a repair-focused Glyph Lab, not a general-purpose font editor.
 
 ## Current limitations
 
 - Variable builds currently require TrueType `glyf` source masters.
 - CFF/CFF2/OTF sources are detected and analyzed, but source-master variable compilation is not enabled yet.
 - Discrete builds currently require the same glyph set across masters.
-- Production Windows code signing is not configured, so SmartScreen may warn on downloaded installers.
-- Apple signing/notarization is not configured yet.
-
-## Next checkpoint
-
-`0.1.0-alpha.5`
-
-- runtime test of alpha 4 multi-step flow
-- final application icon
-- code signing / SmartScreen plan
-- differing glyph-set normalization
+- Windows installers are unsigned and can trigger Microsoft Defender SmartScreen.
+- macOS signing/notarization is not configured yet.

@@ -17,7 +17,7 @@ body {
   background: radial-gradient(circle at 50% -20%, #2b183f 0, #0b0b0d 42%);
 }
 
-button { font: inherit; }
+button, select { font: inherit; }
 
 .app-shell {
   width: min(940px, calc(100% - 36px));
@@ -35,6 +35,12 @@ button { font: inherit; }
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .eyebrow {
@@ -81,6 +87,24 @@ h1 span {
 .lang-btn.active {
   background: #9d83ff;
   color: #0d0a13;
+}
+
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid #2c2c34;
+  border-radius: 999px;
+  background: #151519;
+  color: #aaaab5;
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  color: #fff;
+  border-color: #454550;
 }
 
 .stepper {
@@ -240,11 +264,10 @@ button:disabled {
   flex-direction: column;
 }
 
-.input-count strong {
-  font-size: 24px;
-}
+.input-count strong { font-size: 24px; }
 
-.input-count span {
+.input-count span,
+.input-paths small {
   color: #777784;
   font-size: 10px;
 }
@@ -263,20 +286,13 @@ button:disabled {
   text-overflow: ellipsis;
 }
 
-.input-paths small {
-  color: #777784;
-  font-size: 10px;
-}
-
 .bottom-actions {
   display: grid;
   grid-template-columns: 180px 1fr;
   gap: 10px;
 }
 
-.bottom-actions button {
-  min-height: 48px;
-}
+.bottom-actions button { min-height: 48px; }
 
 .stage-card {
   min-height: 0;
@@ -464,15 +480,22 @@ button:disabled {
   font-size: 10px;
 }
 
-.save-message {
+.save-message,
+.settings-message {
   min-height: 18px;
-  margin: 0 16px 12px;
   font-size: 10px;
   overflow-wrap: anywhere;
 }
 
-.save-message.success { color: #82df93; }
-.save-message.error { color: #ff9191; }
+.save-message {
+  margin: 0 16px 12px;
+}
+
+.save-message.success,
+.settings-message.success { color: #82df93; }
+
+.save-message.error,
+.settings-message.error { color: #ff9191; }
 
 .overlay {
   position: absolute;
@@ -488,7 +511,8 @@ button:disabled {
   gap: 15px;
 }
 
-.overlay.hidden { display: none; }
+.overlay.hidden,
+.modal.hidden { display: none; }
 
 .spinner {
   width: 28px;
@@ -500,6 +524,109 @@ button:disabled {
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4,4,6,.74);
+  backdrop-filter: blur(9px);
+}
+
+.modal-card {
+  position: relative;
+  width: min(610px, calc(100vw - 32px));
+  border: 1px solid #2b2b33;
+  border-radius: 22px;
+  background: #111115;
+  box-shadow: 0 40px 120px rgba(0,0,0,.55);
+  overflow: hidden;
+}
+
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 22px;
+  border-bottom: 1px solid #25252c;
+}
+
+.modal-kicker {
+  color: #9d83ff;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .16em;
+}
+
+.modal-head h2 {
+  margin: 5px 0 0;
+  font-size: 23px;
+}
+
+.close-btn {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.settings-list {
+  display: grid;
+}
+
+.setting-row {
+  min-height: 78px;
+  padding: 15px 22px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 18px;
+  border-bottom: 1px solid #23232a;
+}
+
+.setting-row strong {
+  display: block;
+  font-size: 13px;
+}
+
+.setting-row small {
+  display: block;
+  margin-top: 5px;
+  color: #7f7f8b;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.setting-row input[type="checkbox"] {
+  width: 38px;
+  height: 22px;
+  accent-color: #9d83ff;
+}
+
+.setting-row select {
+  min-width: 190px;
+  border: 1px solid #33333b;
+  border-radius: 10px;
+  background: #19191e;
+  color: #d7d7de;
+  padding: 9px 10px;
+  outline: none;
+}
+
+.modal-footer {
+  min-height: 72px;
+  padding: 14px 22px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 16px;
+}
 
 @media (max-height: 720px) {
   .app-shell { padding-top: 18px; padding-bottom: 16px; gap: 12px; }
@@ -515,4 +642,6 @@ button:disabled {
   .metric:nth-child(2) { border-right: 0; }
   .metric:nth-child(-n+2) { border-bottom: 1px solid #24242b; }
   .download-grid { grid-template-columns: repeat(2, 1fr); }
+  .setting-row { grid-template-columns: 1fr; }
+  .setting-row select { width: 100%; }
 }

@@ -13,7 +13,13 @@ const state = {
   analysis: null,
   build: null,
   buildDir: null,
-  lang: savedLang || detectedLang
+  lang: savedLang || detectedLang,
+  settings: {
+    close_to_tray: false,
+    launch_at_startup: false,
+    clean_temp_on_start: true,
+    build_mode: 'auto'
+  }
 };
 
 const $ = (id) => document.getElementById(id);
@@ -140,7 +146,7 @@ function renderAnalysis() {
       <div class="metric"><span>${esc(t('analysis.variants'))}</span><strong>${fonts.length}</strong><small>${romans} roman · ${italics} italic</small></div>
       <div class="metric"><span>${esc(t('analysis.weights'))}</span><strong>${weights.length}</strong><small>${esc(weights.join(' · ') || '—')}</small></div>
       <div class="metric"><span>${esc(t('analysis.range'))}</span><strong>${weights[0] ?? '—'}–${weights.at(-1) ?? '—'}</strong><small>wght</small></div>
-      <div class="metric"><span>${esc(t('analysis.mode'))}</span><strong class="metric-text">${esc(modeLabel(mode))}</strong><small>AUTO</small></div>
+      <div class="metric"><span>${esc(t('analysis.mode'))}</span><strong class="metric-text">${esc(modeLabel(mode))}</strong><small>${esc(state.settings.build_mode.toUpperCase())}</small></div>
     </div>
 
     <div class="stage-note">${esc(note)}</div>
@@ -254,7 +260,7 @@ async function build() {
         'build',
         ...state.paths,
         '-o', state.buildDir,
-        '--mode', 'auto',
+        '--mode', state.settings.build_mode || 'auto',
         '--formats', 'ttf,otf,woff,woff2,css,zip'
       ]
     });
@@ -288,6 +294,55 @@ async function saveOutput(source, type) {
   }
 }
 
+function fillSettings() {
+  $('setting-tray').checked = !!state.settings.close_to_tray;
+  $('setting-autostart').checked = !!state.settings.launch_at_startup;
+  $('setting-cleanup').checked = !!state.settings.clean_temp_on_start;
+  $('setting-mode').value = state.settings.build_mode || 'auto';
+  $('settings-message').textContent = '';
+}
+
+function openSettings() {
+  fillSettings();
+  $('settings-modal').classList.remove('hidden');
+  $('settings-modal').setAttribute('aria-hidden', 'false');
+}
+
+function closeSettings() {
+  $('settings-modal').classList.add('hidden');
+  $('settings-modal').setAttribute('aria-hidden', 'true');
+}
+
+async function loadSettings() {
+  try {
+    const settings = await invoke('get_desktop_settings');
+    state.settings = { ...state.settings, ...settings };
+  } catch (error) {
+    console.warn('Could not load desktop settings', error);
+  }
+}
+
+async function saveSettings() {
+  const next = {
+    close_to_tray: $('setting-tray').checked,
+    launch_at_startup: $('setting-autostart').checked,
+    clean_temp_on_start: $('setting-cleanup').checked,
+    build_mode: $('setting-mode').value
+  };
+
+  const message = $('settings-message');
+
+  try {
+    state.settings = await invoke('set_desktop_settings', { settings: next });
+    message.textContent = t('settings.saved');
+    message.className = 'settings-message success';
+    render();
+  } catch (error) {
+    message.textContent = t('settings.error') + ' ' + String(error);
+    message.className = 'settings-message error';
+  }
+}
+
 $('pick-files').addEventListener('click', async () => {
   const selected = await open({
     multiple: true,
@@ -316,8 +371,17 @@ $('save-zip').addEventListener('click', async () => {
   if (zip) await saveOutput(zip.path, zip.type);
 });
 
+$('settings-open').addEventListener('click', openSettings);
+$('settings-close').addEventListener('click', closeSettings);
+$('settings-save').addEventListener('click', saveSettings);
+document.querySelectorAll('[data-close-settings]').forEach(el => el.addEventListener('click', closeSettings));
+
 document.querySelectorAll('.lang-btn').forEach(button => {
   button.addEventListener('click', () => setLanguage(button.dataset.lang));
+});
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') closeSettings();
 });
 
 const webview = getCurrentWebview();
@@ -334,5 +398,6 @@ webview.onDragDropEvent(event => {
   }
 }).catch(console.error);
 
+await loadSettings();
 setLanguage(state.lang);
 render();

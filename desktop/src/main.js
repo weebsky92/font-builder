@@ -398,6 +398,14 @@ webview.onDragDropEvent(event => {
   }
 }).catch(console.error);
 
-await loadSettings();
-setLanguage(state.lang);
-render();
+async function init() {
+  await loadSettings();
+  setLanguage(state.lang);
+  render();
+}
+
+init().catch(error => {
+  console.error('App initialization failed', error);
+  setLanguage(state.lang);
+  render();
+});

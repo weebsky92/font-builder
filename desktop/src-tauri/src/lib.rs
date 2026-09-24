@@ -110,7 +110,13 @@ fn run_engine(app: tauri::AppHandle, args: Vec<String>) -> Result<Value, String>
         .map_err(|e| format!("Cannot start engine {}: {}", program, e))?;
 
     if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        if let Ok(payload) = serde_json::from_str::<Value>(&stderr) {
+            if let Some(message) = payload.get("error").and_then(|value| value.as_str()) {
+                return Err(message.to_string());
+            }
+        }
+        return Err(stderr);
     }
 
     serde_json::from_slice(&output.stdout)

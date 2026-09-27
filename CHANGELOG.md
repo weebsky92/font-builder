@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.1.0-alpha.8 - 2026-09-27
+
+### Changed
+- analysis now separates font count, Polish glyph coverage and Variable Font availability
+- analysis actions are Back / Draw Polish glyphs / Build Variable Font
+- action availability follows the actual input state
+- selecting a new set after Back replaces the previous analyzed job
+- multiple font families are no longer silently reduced to the first family
+- package, engine and desktop bundle versions are synchronized again
+
+### Fixed
+- legacy OS/2 tables missing `usMaxContext` no longer crash saves/builds
+- shared pre-save compatibility is used by Glyph Lab, Variable builds and OTF conversion
+- repaired static-font download no longer expects a result-page status element
+- glyph-audit failures are retained as an explicit analysis state instead of disappearing silently
+
+### Tests
+- regression test for an OS/2 v2 object missing `usMaxContext`
+- existing TrueType and CFF Glyph Lab repair tests remain enabled
+
+### Known
+- CFF/CFF2 masters are still not Variable Font sources
+- CFF2 Glyph Lab repair is not enabled yet
+- Windows installers remain unsigned and may trigger SmartScreen
+
 ## 0.1.0-alpha.7 - 2026-09-24
 
 ### Fixed

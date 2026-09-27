@@ -18,6 +18,8 @@ const state = {
   glyphSelected: null,
   glyphRecipes: {},
   repairedOutputs: [],
+  glyphAuditError: null,
+  replaceOnNextAdd: false,
   lang: savedLang || detectedLang,
   settings: {
     close_to_tray: false,
@@ -129,6 +131,11 @@ function analysisData() {
 }
 
 function variableEligibility(family) {
+  const families = state.analysis?.families || [];
+  if (families.length !== 1) {
+    return { ok: false, reason: t('analysis.oneFamilyRequired') };
+  }
+
   const fonts = family?.fonts || [];
   if (fonts.length < 2) {
     return { ok: false, reason: t('analysis.needTwoMasters') };
@@ -140,7 +147,19 @@ function variableEligibility(family) {
 }
 
 function glyphFamily() {
-  return state.glyphAudit?.families?.[0] || null;
+  const families = state.glyphAudit?.families || [];
+  return families.length === 1 ? families[0] : null;
+}
+
+function fontCountLabel(count) {
+  if (state.lang !== 'pl') return count === 1 ? '1 font file' : count + ' font files';
+  if (count === 1) return '1 plik czcionki';
+  const last = count % 10;
+  const lastTwo = count % 100;
+  if (last >= 2 && last <= 4 && !(lastTwo >= 12 && lastTwo <= 14)) {
+    return count + ' pliki czcionki';
+  }
+  return count + ' plików czcionki';
 }
 
 function renderGlyphSummaryBar() {
@@ -176,21 +195,80 @@ function renderGlyphSummaryBar() {
 }
 
 function renderAnalysis() {
+  const families = state.analysis?.families || [];
   const family = analysisData();
+
   if (!family) return;
+
+  if (families.length !== 1) {
+    $('analysis-content').innerHTML = `
+      <div class="stage-head">
+        <div>
+          <span class="status-pill warning">! ${esc(t('analysis.multipleFamilies'))}</span>
+          <h2>${esc(t('analysis.chooseOneFamily'))}</h2>
+        </div>
+      </div>
+      <div class="multi-family-list">
+        ${families.map(item => `
+          <div>
+            <strong>${esc(item.family)}</strong>
+            <span>${esc(fontCountLabel((item.fonts || []).length))}</span>
+          </div>
+        `).join('')}
+      </div>
+      <div class="stage-note">${esc(t('analysis.multipleFamiliesNote'))}</div>
+    `;
+
+    $('glyph-action').disabled = true;
+    $('glyph-action').title = t('analysis.oneFamilyRequired');
+    $('build').disabled = true;
+    $('build').title = t('analysis.oneFamilyRequired');
+    return;
+  }
 
   const fonts = family.fonts || [];
   const weights = [...new Set(fonts.map(f => Number(f.weight)).filter(Number.isFinite))].sort((a,b) => a-b);
   const italics = fonts.filter(f => f.italic).length;
   const romans = fonts.length - italics;
-  const mode = family.build_mode;
+  const glyphs = glyphFamily();
   const eligibility = variableEligibility(family);
 
-  let note;
-  if (fonts.length < 2) note = t('analysis.singleMasterNote');
-  else if (mode === 'unsupported-source-outline') note = t('analysis.unsupportedNote');
-  else if (mode === 'true-variable') note = t('analysis.smoothNote');
-  else note = t('analysis.discreteNote');
+  const glyphKnown = !!glyphs;
+  const glyphComplete = glyphs?.complete === true;
+  const glyphMissing = glyphKnown ? Number(glyphs.missing_count || 0) : null;
+  const glyphRepairSupported = glyphKnown && glyphs.repair_supported !== false;
+  const canRepairGlyphs = glyphKnown && !glyphComplete && glyphRepairSupported;
+
+  let polishValue = t('analysis.polishUnknown');
+  let polishSub = state.glyphAuditError ? t('analysis.auditFailedShort') : t('analysis.auditPending');
+  let polishClass = 'unknown';
+
+  if (glyphKnown && glyphComplete) {
+    polishValue = t('analysis.polishCompleteShort');
+    polishSub = '18 / 18';
+    polishClass = 'ok';
+  } else if (glyphKnown) {
+    polishValue = t('analysis.polishMissingShort');
+    polishSub = glyphMissing + ' / 18';
+    polishClass = 'warning';
+  }
+
+  let recommendation;
+  if (!glyphKnown) {
+    recommendation = t('analysis.recommendAuditUnavailable');
+  } else if (fonts.length < 2 && glyphComplete) {
+    recommendation = t('analysis.recommendSingleComplete');
+  } else if (fonts.length < 2) {
+    recommendation = t('analysis.recommendSingleMissing');
+  } else if (!glyphComplete && eligibility.ok) {
+    recommendation = t('analysis.recommendRepairThenVariable');
+  } else if (glyphComplete && eligibility.ok) {
+    recommendation = t('analysis.recommendVariableReady');
+  } else if (!glyphComplete) {
+    recommendation = t('analysis.recommendRepairOnly');
+  } else {
+    recommendation = eligibility.reason;
+  }
 
   const repaired = state.repairedOutputs?.length === 1 ? state.repairedOutputs[0] : null;
   const repairedBox = repaired ? `
@@ -203,13 +281,6 @@ function renderAnalysis() {
     </div>
   ` : '';
 
-  const blocker = eligibility.ok ? '' : `
-    <div class="build-blocker">
-      <strong>${esc(t('analysis.variableUnavailable'))}</strong>
-      <span>${esc(eligibility.reason)}</span>
-    </div>
-  `;
-
   $('analysis-content').innerHTML = `
     <div class="stage-head">
       <div>
@@ -219,22 +290,40 @@ function renderAnalysis() {
       <div class="subtle">${esc(t('analysis.ignored'))}: <strong>${state.analysis?.ignored?.length || 0}</strong></div>
     </div>
 
-    <div class="metric-grid">
-      <div class="metric"><span>${esc(t('analysis.variants'))}</span><strong>${fonts.length}</strong><small>${romans} roman · ${italics} italic</small></div>
-      <div class="metric"><span>${esc(t('analysis.weights'))}</span><strong>${weights.length}</strong><small>${esc(weights.join(' · ') || '—')}</small></div>
-      <div class="metric"><span>${esc(t('analysis.range'))}</span><strong>${weights[0] ?? '—'}–${weights.at(-1) ?? '—'}</strong><small>wght</small></div>
-      <div class="metric"><span>${esc(t('analysis.mode'))}</span><strong class="metric-text">${esc(modeLabel(mode))}</strong><small>${esc(state.settings.build_mode.toUpperCase())}</small></div>
+    <div class="analysis-summary-grid">
+      <div class="analysis-status-card">
+        <span>${esc(t('analysis.fontFiles'))}</span>
+        <strong>${esc(fontCountLabel(fonts.length))}</strong>
+        <small>${esc(weights.join(' · ') || '—')} · ${romans} roman · ${italics} italic</small>
+      </div>
+
+      <div class="analysis-status-card ${polishClass}">
+        <span>${esc(t('analysis.polishChars'))}</span>
+        <strong>${esc(polishValue)}</strong>
+        <small>${esc(polishSub)}</small>
+      </div>
+
+      <div class="analysis-status-card ${eligibility.ok ? 'ok' : 'disabled'}">
+        <span>VARIABLE FONT</span>
+        <strong>${esc(eligibility.ok ? t('analysis.available') : t('analysis.unavailable'))}</strong>
+        <small>${esc(eligibility.ok ? modeLabel(family.build_mode) : eligibility.reason)}</small>
+      </div>
     </div>
 
-    ${renderGlyphSummaryBar()}
-    ${repairedBox}
-    ${blocker}
+    <div class="recommendation-bar">
+      <span>${esc(t('analysis.recommendedPath'))}</span>
+      <strong>${esc(recommendation)}</strong>
+    </div>
 
-    <div class="stage-note">${esc(note)}</div>
+    ${repairedBox}
   `;
 
-  $('open-glyph-lab')?.addEventListener('click', openGlyphLab);
   $('save-repaired-static')?.addEventListener('click', () => saveOutput(repaired, ext(repaired)));
+
+  $('glyph-action').disabled = !canRepairGlyphs;
+  $('glyph-action').title = canRepairGlyphs
+    ? ''
+    : (glyphComplete ? t('analysis.polishAlreadyComplete') : (glyphKnown ? t('analysis.glyphRepairUnavailable') : t('analysis.polishUnknown')));
 
   $('build').disabled = !eligibility.ok;
   $('build').title = eligibility.ok ? '' : eligibility.reason;
@@ -305,6 +394,7 @@ function render() {
 
 function resetAll() {
   state.step = 1;
+  state.replaceOnNextAdd = false;
   state.paths = [];
   state.analysis = null;
   state.build = null;
@@ -314,13 +404,20 @@ function resetAll() {
   state.glyphSelected = null;
   state.glyphRecipes = {};
   state.repairedOutputs = [];
+  state.glyphAuditError = null;
   render();
 }
 
 function addPaths(paths) {
+  if (state.replaceOnNextAdd) {
+    state.paths = [];
+  }
+
   for (const p of paths || []) {
     if (!state.paths.includes(p)) state.paths.push(p);
   }
+
+  state.replaceOnNextAdd = false;
   state.analysis = null;
   state.build = null;
   state.buildDir = null;
@@ -329,6 +426,7 @@ function addPaths(paths) {
   state.glyphSelected = null;
   state.glyphRecipes = {};
   state.repairedOutputs = [];
+  state.glyphAuditError = null;
   state.step = 1;
   render();
 }
@@ -337,9 +435,11 @@ async function runAnalysis() {
   state.analysis = await invoke('run_engine', { args: ['analyze', ...state.paths] });
   try {
     state.glyphAudit = await invoke('run_engine', { args: ['glyph-audit', ...state.paths] });
+    state.glyphAuditError = null;
   } catch (error) {
     console.warn('Glyph audit unavailable', error);
     state.glyphAudit = null;
+    state.glyphAuditError = String(error);
   }
 }
 
@@ -399,11 +499,17 @@ async function saveOutput(source, type) {
 
   try {
     await invoke('copy_output_file', { source, destination: target });
-    message.textContent = t('result.saved') + ': ' + target;
-    message.className = 'save-message success';
+    if (message) {
+      message.textContent = t('result.saved') + ': ' + target;
+      message.className = 'save-message success';
+    }
   } catch (error) {
-    message.textContent = t('result.saveError') + ' ' + String(error);
-    message.className = 'save-message error';
+    if (message) {
+      message.textContent = t('result.saveError') + ' ' + String(error);
+      message.className = 'save-message error';
+    } else {
+      alert(t('result.saveError') + '\n\n' + String(error));
+    }
   }
 }
 
@@ -858,7 +964,12 @@ $('pick-folder').addEventListener('click', async () => {
 
 $('clear').addEventListener('click', resetAll);
 $('analyze').addEventListener('click', analyze);
-$('back-input').addEventListener('click', () => { state.step = 1; render(); });
+$('back-input').addEventListener('click', () => {
+  state.step = 1;
+  state.replaceOnNextAdd = true;
+  render();
+});
+$('glyph-action').addEventListener('click', openGlyphLab);
 $('build').addEventListener('click', build);
 $('new-build').addEventListener('click', resetAll);
 

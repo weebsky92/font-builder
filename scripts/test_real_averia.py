@@ -7,7 +7,7 @@ import urllib.request
 from pathlib import Path
 
 from fontbuilder_engine.builder import build_family
-from fontbuilder_engine.glyphlab import audit_paths
+from fontbuilder_engine.glyphlab import audit_paths, repair_paths
 from fontbuilder_engine.inspect import group_fonts, analyze_family
 
 BASE = "https://raw.githubusercontent.com/google/fonts/main/ofl/averiaseriflibre/"
@@ -35,6 +35,24 @@ with tempfile.TemporaryDirectory(prefix="averia-real-") as td:
         print("AUDIT_OK", audit["families"][0]["missing_count"], "missing")
     except Exception:
         print("AUDIT_FAIL")
+        traceback.print_exc()
+        raise
+
+    try:
+        family_audit = audit["families"][0]
+        missing = [item for item in family_audit["chars"] if item["status"] != "present"]
+        recipes = [item["suggested_recipe"] for item in missing]
+        repair_dir = root / "repair"
+        repaired = repair_paths(paths, repair_dir, recipes)
+        assert repaired["variant_count"] == len(FILES), repaired
+        assert Path(repaired["zip"]).exists(), repaired
+        assert len(repaired["outputs"]) == len(FILES), repaired
+
+        repaired_audit = audit_paths([Path(path) for path in repaired["outputs"]])
+        assert repaired_audit["families"][0]["complete"] is True, repaired_audit
+        print("REPAIR_OK", repaired["variant_count"], "variants", repaired["zip"])
+    except Exception:
+        print("REPAIR_FAIL")
         traceback.print_exc()
         raise
 

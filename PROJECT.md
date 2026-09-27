@@ -1,6 +1,6 @@
 # Font Builder - Project
 
-Version: `0.1.0-alpha.9`
+Version: `0.1.0-alpha.10`
 License: MIT
 Repository: `weebsky92/font-builder`
 
@@ -129,11 +129,33 @@ Persistent local desktop settings:
 - CI now downloads the real 6-master Averia Serif Libre family and tests both the Python engine and the compiled desktop sidecar.
 - The compiled Windows sidecar successfully completes Averia glyph audit and Variable Font build in CI.
 
+## Alpha 10 family recipes
+
+Glyph Lab recipes now belong to the whole font family, not only the preview master.
+
+Workflow:
+- the user edits a glyph on the representative master,
+- Font Builder stores the edit as a delta from that master's AUTO recipe,
+- every master calculates its own AUTO placement,
+- the same normalized user correction is applied on top of each master's own placement,
+- Light / Bold / Italic therefore keep their own proportions instead of receiving copied absolute coordinates.
+
+Repair output:
+- every supplied master is repaired,
+- all repaired masters remain available individually,
+- a ZIP pack containing the complete repaired family is generated,
+- the repaired master paths become the active job for the next Variable Font build.
+
+CI verifies this behavior with the real 6-master Averia Serif Libre family and requires:
+- 6 repaired outputs,
+- a generated ZIP,
+- Polish coverage 18/18 after repair.
+
 ## Next checkpoint
 
-`0.1.0-alpha.10`
+`0.1.0-alpha.11`
 
 Primary:
-- real Windows runtime test with Averia Serif Libre and Roffelia,
-- verify Polish audit + repair + Variable build in one flow,
-- refine Glyph Lab drawing quality based on real fonts.
+- Windows runtime validation of family-wide Glyph Lab repair,
+- visual review of generated marks in Light / Regular / Bold / Italic,
+- refine recipe interpolation if any extreme master needs separate correction.

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.1.0-alpha.10 - 2026-09-27
+
+### Added
+- family-wide Glyph Lab recipes
+- normalized recipe deltas relative to each master's own AUTO placement
+- repaired-family ZIP export
+- compact selector for downloading repaired variants individually
+- real Averia regression requiring all 6 masters to be repaired and re-audited to 18/18
+
+### Changed
+- repaired masters, not the repair directory, become the active input for the next analysis/build
+- avoids re-ingesting the generated ZIP alongside repaired source masters
+
+### Expected workflow
+- edit once on the representative master
+- apply to every family variant
+- download the whole repaired family or a selected variant
+- continue directly to Variable Font build
+
 ## 0.1.0-alpha.9 - 2026-09-27
 
 ### Fixed

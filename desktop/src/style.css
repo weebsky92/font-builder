@@ -1214,3 +1214,48 @@ button:disabled {
     grid-template-columns: 150px 1fr 1fr;
   }
 }
+
+
+.static-export-bar.family-export {
+  align-items: center;
+}
+
+.static-export-copy {
+  min-width: 0;
+}
+
+.static-export-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.static-export-actions select {
+  min-width: 190px;
+  max-width: 270px;
+  border: 1px solid #34343c;
+  border-radius: 9px;
+  background: #15151a;
+  color: #d7d7de;
+  padding: 8px 10px;
+  font-size: 9px;
+  outline: none;
+}
+
+.static-export-actions button {
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  .static-export-bar.family-export {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .static-export-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

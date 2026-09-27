@@ -18,6 +18,7 @@ const state = {
   glyphSelected: null,
   glyphRecipes: {},
   repairedOutputs: [],
+  repairedZip: null,
   glyphAuditError: null,
   replaceOnNextAdd: false,
   lang: savedLang || detectedLang,
@@ -270,14 +271,36 @@ function renderAnalysis() {
     recommendation = eligibility.reason;
   }
 
-  const repaired = state.repairedOutputs?.length === 1 ? state.repairedOutputs[0] : null;
-  const repairedBox = repaired ? `
-    <div class="static-export-bar">
-      <div>
-        <strong>✓ ${esc(t('analysis.repairedReady'))}</strong>
-        <small>${esc(basename(repaired))}</small>
+  const repairedOutputs = state.repairedOutputs || [];
+  const repairedZip = state.repairedZip;
+  const repairedMulti = repairedOutputs.length > 1;
+
+  const repairedBox = repairedOutputs.length ? `
+    <div class="static-export-bar ${repairedMulti ? 'family-export' : ''}">
+      <div class="static-export-copy">
+        <strong>✓ ${esc(repairedMulti ? t('analysis.repairedFamilyReady') : t('analysis.repairedReady'))}</strong>
+        <small>${
+          repairedMulti
+            ? esc(t('analysis.recipeAppliedFamily') + ' ' + repairedOutputs.length)
+            : esc(basename(repairedOutputs[0]))
+        }</small>
       </div>
-      <button id="save-repaired-static">${esc(t('analysis.saveRepaired'))}</button>
+
+      <div class="static-export-actions">
+        ${
+          repairedMulti
+            ? `
+              <select id="repaired-variant-select" aria-label="${esc(t('analysis.selectVariant'))}">
+                ${repairedOutputs.map((path, index) => `
+                  <option value="${index}">${esc(basename(path))}</option>
+                `).join('')}
+              </select>
+              <button id="save-repaired-selected" class="secondary">${esc(t('analysis.saveSelectedVariant'))}</button>
+              <button id="save-repaired-pack">${esc(t('analysis.saveRepairedPack'))}</button>
+            `
+            : `<button id="save-repaired-static">${esc(t('analysis.saveRepaired'))}</button>`
+        }
+      </div>
     </div>
   ` : '';
 
@@ -318,7 +341,20 @@ function renderAnalysis() {
     ${repairedBox}
   `;
 
-  $('save-repaired-static')?.addEventListener('click', () => saveOutput(repaired, ext(repaired)));
+  $('save-repaired-static')?.addEventListener('click', () => {
+    const path = repairedOutputs[0];
+    if (path) saveOutput(path, ext(path));
+  });
+
+  $('save-repaired-pack')?.addEventListener('click', () => {
+    if (repairedZip) saveOutput(repairedZip, 'zip');
+  });
+
+  $('save-repaired-selected')?.addEventListener('click', () => {
+    const select = $('repaired-variant-select');
+    const path = repairedOutputs[Number(select?.value || 0)];
+    if (path) saveOutput(path, ext(path));
+  });
 
   $('glyph-action').disabled = !canRepairGlyphs;
   $('glyph-action').title = canRepairGlyphs
@@ -404,6 +440,7 @@ function resetAll() {
   state.glyphSelected = null;
   state.glyphRecipes = {};
   state.repairedOutputs = [];
+  state.repairedZip = null;
   state.glyphAuditError = null;
   render();
 }
@@ -426,6 +463,7 @@ function addPaths(paths) {
   state.glyphSelected = null;
   state.glyphRecipes = {};
   state.repairedOutputs = [];
+  state.repairedZip = null;
   state.glyphAuditError = null;
   state.step = 1;
   render();
@@ -924,8 +962,9 @@ async function repairGlyphs() {
       ]
     });
 
-    state.paths = [response.result.output_dir];
     state.repairedOutputs = [...(response.result.outputs || [])];
+    state.repairedZip = response.result.zip || null;
+    state.paths = [...state.repairedOutputs];
     state.glyphRecipes = {};
     state.glyphPreview = null;
     state.glyphSelected = null;

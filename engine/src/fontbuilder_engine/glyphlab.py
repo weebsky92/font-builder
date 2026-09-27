@@ -15,6 +15,7 @@ from fontTools.pens.transformPen import TransformPen
 from fontTools.ttLib import TTFont
 
 from .inspect import group_fonts
+from .font_safety import prepare_font_for_save
 
 POLISH_SPECS: dict[str, dict[str, str]] = {
     "Ą": {"base": "A", "kind": "ogonek"},
@@ -617,6 +618,7 @@ def repair_paths(paths: list[Path], output_dir: Path, recipes: list[dict[str, An
             font["maxp"].numGlyphs = len(order)
 
             out_path = family_dir / source.path.name
+            prepare_font_for_save(font)
             font.save(out_path, reorderTables=True)
             outputs.append(str(out_path))
 

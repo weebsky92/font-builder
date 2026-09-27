@@ -4,6 +4,7 @@ from pathlib import Path
 from fontTools.ttLib import TTFont
 from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.t2CharStringPen import T2CharStringPen
+from .font_safety import prepare_font_for_save
 
 
 def ttf_to_cff_otf(src_path: Path, out_path: Path) -> Path:
@@ -52,6 +53,7 @@ def ttf_to_cff_otf(src_path: Path, out_path: Path) -> Path:
     for attr in ["fontRevision", "flags", "created", "modified", "lowestRecPPEM", "fontDirectionHint"]:
         if hasattr(src["head"], attr):
             setattr(otf["head"], attr, getattr(src["head"], attr))
+    prepare_font_for_save(otf)
     otf.save(out_path)
     check = TTFont(out_path)
     if "CFF " not in check:

@@ -6,6 +6,7 @@ from fontTools.pens.t2CharStringPen import T2CharStringPen
 from fontTools.ttLib import TTFont
 
 from fontbuilder_engine.glyphlab import audit_paths, repair_paths
+from fontbuilder_engine.font_safety import prepare_font_for_save
 
 
 def _rect(x0, y0, x1, y1):
@@ -139,3 +140,34 @@ def test_audit_and_repair_cff_otf_without_converting_outline(tmp_path: Path):
     assert "CFF " in repaired_font
     assert "glyf" not in repaired_font
     assert 0x0106 in repaired_font.getBestCmap()
+
+
+def test_prepare_old_os2_missing_us_max_context(tmp_path: Path):
+    src = tmp_path / "old-os2.ttf"
+    _font(src)
+
+    font = TTFont(src)
+    os2 = font["OS/2"]
+    os2.version = max(2, int(getattr(os2, "version", 0) or 0))
+
+    for name, value in {
+        "sxHeight": 0,
+        "sCapHeight": 0,
+        "usDefaultChar": 0,
+        "usBreakChar": 32,
+    }.items():
+        if not hasattr(os2, name):
+            setattr(os2, name, value)
+
+    if hasattr(os2, "usMaxContext"):
+        delattr(os2, "usMaxContext")
+
+    prepare_font_for_save(font)
+
+    assert hasattr(font["OS/2"], "usMaxContext")
+    assert font["OS/2"].usMaxContext >= 0
+
+    out = tmp_path / "old-os2-fixed.ttf"
+    font.save(out)
+    reopened = TTFont(out)
+    assert hasattr(reopened["OS/2"], "usMaxContext")

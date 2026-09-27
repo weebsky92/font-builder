@@ -14,6 +14,7 @@ from fontTools.varLib import build as varlib_build
 from fontTools.varLib.featureVars import addFeatureVariations
 from .model import Analysis, FontSource
 from .otf import ttf_to_cff_otf
+from .font_safety import prepare_font_for_save
 
 
 def _slug(s: str) -> str:
@@ -159,6 +160,7 @@ def _discrete(analysis: Analysis, out_ttf: Path) -> dict:
     base["OS/2"].usWeightClass = default_w
     base["OS/2"].fsSelection &= ~0x01
     base["head"].macStyle &= ~0x02
+    prepare_font_for_save(base)
     base.save(out_ttf, reorderTables=True)
     return {"mode":"discrete-variable", "default_weight":default_w, "weights":weights, "has_italic":has_roman and has_italic}
 
@@ -185,6 +187,7 @@ def _true_variable(analysis: Analysis, out_ttf: Path) -> dict:
         ds_path=Path(td)/"build.designspace"; ds.write(ds_path)
         vf, _, _ = varlib_build(str(ds_path))
         _set_family_names(vf, analysis.family + " Variable")
+        prepare_font_for_save(vf)
         vf.save(out_ttf)
     return {"mode":"true-variable", "default_weight":default_w, "weights":weights, "has_italic":has_roman and has_italic}
 

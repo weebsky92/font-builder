@@ -33,7 +33,11 @@ def prepare_font_for_save(font):
             if not hasattr(os2, name):
                 setattr(os2, name, value)
 
-        if not hasattr(os2, "usMaxContext"):
+    if not hasattr(os2, "usMaxContext"):
+        legacy_value = getattr(os2, "usMaxContex", None)
+        if legacy_value is not None:
+            os2.usMaxContext = int(legacy_value)
+        else:
             try:
                 os2.usMaxContext = int(maxCtxFont(font))
             except Exception:

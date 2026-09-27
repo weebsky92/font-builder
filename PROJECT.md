@@ -1,6 +1,6 @@
 # Font Builder - Project
 
-Version: `0.1.0-alpha.8`
+Version: `0.1.0-alpha.9`
 License: MIT
 Repository: `weebsky92/font-builder`
 
@@ -120,9 +120,18 @@ Persistent local desktop settings:
 - Windows installers are unsigned and can trigger Microsoft Defender SmartScreen.
 - macOS signing/notarization is not configured yet.
 
+## Alpha 9 verified fixes
+
+- Windows-safe engine JSON transport no longer depends on CP1252 for Polish glyph names.
+- Real Averia Serif Libre audit detects missing Polish glyphs on Windows and macOS.
+- Legacy `OS/2.usMaxContext` is hydrated before `FeatureVariations` is built.
+- Historical `usMaxContex` spelling found in old fonts is accepted as a fallback.
+- CI now downloads the real 6-master Averia Serif Libre family and tests both the Python engine and the compiled desktop sidecar.
+- The compiled Windows sidecar successfully completes Averia glyph audit and Variable Font build in CI.
+
 ## Next checkpoint
 
-`0.1.0-alpha.9`
+`0.1.0-alpha.10`
 
 Primary:
 - real Windows runtime test with Averia Serif Libre and Roffelia,

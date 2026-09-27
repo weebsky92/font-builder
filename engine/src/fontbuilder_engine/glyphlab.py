@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import shutil
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -198,6 +199,50 @@ def _default_recipe(font: TTFont, char: str) -> dict[str, Any]:
     }
 
 
+def _recipe_with_reference(font: TTFont, char: str) -> dict[str, Any]:
+    auto = _default_recipe(font, char)
+    recipe = dict(auto)
+    recipe["_reference_auto"] = dict(auto)
+    recipe["_reference_upm"] = float(font["head"].unitsPerEm)
+    return recipe
+
+
+def _family_recipe_for_master(font: TTFont, char: str, recipe: dict[str, Any]) -> dict[str, Any]:
+    """Apply user edits as deltas over each master's own AUTO recipe."""
+    master = _default_recipe(font, char)
+    if not master.get("repairable", True):
+        return master
+
+    reference = recipe.get("_reference_auto")
+    if not isinstance(reference, dict):
+        # Compatibility with recipes created before alpha.10.
+        return {**master, **{k: v for k, v in recipe.items() if not k.startswith("_")}}
+
+    ref_upm = float(recipe.get("_reference_upm") or font["head"].unitsPerEm or 1000)
+    master_upm = float(font["head"].unitsPerEm or ref_upm or 1000)
+    resolved = dict(master)
+
+    # Position/size edits are stored as normalized deltas from AUTO, so the
+    # same visual correction scales across Light/Bold/Italic masters.
+    dimensional = ("dx", "dy", "thickness", "mark_width", "mark_height")
+    for key in dimensional:
+        if key in recipe and key in reference:
+            delta = (float(recipe[key]) - float(reference[key])) / ref_upm
+            baseline = float(master.get(key, reference[key]))
+            resolved[key] = baseline + delta * master_upm
+
+    # Dimensionless adjustments are applied as deltas over each master's AUTO.
+    for key in ("scale", "rotation"):
+        if key in recipe and key in reference:
+            baseline = float(master.get(key, reference[key]))
+            resolved[key] = baseline + (float(recipe[key]) - float(reference[key]))
+
+    if recipe.get("force"):
+        resolved["force"] = True
+
+    return resolved
+
+
 def _source_payload(source) -> dict[str, Any]:
     return {
         "path": str(source.path),
@@ -255,7 +300,7 @@ def audit_paths(paths: list[Path]) -> dict[str, Any]:
                 key=lambda item: (item[0].italic, abs(item[0].weight - 400)),
             )[1]
             try:
-                suggested = _default_recipe(preview_font, char)
+                suggested = _recipe_with_reference(preview_font, char)
             except Exception as exc:
                 suggested = {
                     "char": char,
@@ -310,7 +355,7 @@ def preview_path(paths: list[Path], char: str, recipe: dict[str, Any] | None = N
     if not base_name:
         raise ValueError(f"Missing base glyph {spec['base']} in preview master")
 
-    default_recipe = _default_recipe(font, char)
+    default_recipe = _recipe_with_reference(font, char)
     active_recipe = {**default_recipe, **(recipe or {})}
     mark_name = None if spec["kind"] == "stroke" else _find_mark(font, spec["kind"])
 
@@ -557,8 +602,10 @@ def repair_paths(paths: list[Path], output_dir: Path, recipes: list[dict[str, An
     groups = group_fonts(paths)
     outputs = []
     repaired = []
+    family_names = []
 
     for family_name, sources in groups.items():
+        family_names.append(family_name)
         family_dir = output_dir / family_name.replace("/", "-")
         family_dir.mkdir(parents=True, exist_ok=True)
 
@@ -581,7 +628,7 @@ def repair_paths(paths: list[Path], output_dir: Path, recipes: list[dict[str, An
                 if not base_name:
                     raise ValueError(f"{source.path.name}: missing base glyph {spec['base']} for {char}")
 
-                resolved = {**_default_recipe(font, char), **recipe}
+                resolved = _family_recipe_for_master(font, char, recipe)
                 if not resolved.get("repairable", True):
                     raise ValueError(f"{source.path.name}: {char} is not automatically repairable")
 
@@ -622,9 +669,26 @@ def repair_paths(paths: list[Path], output_dir: Path, recipes: list[dict[str, An
             font.save(out_path, reorderTables=True)
             outputs.append(str(out_path))
 
+    pack_name = (
+        family_names[0].replace("/", "-") if len(family_names) == 1 else "FontBuilder"
+    ) + "-Polish-Repaired.zip"
+    zip_path = output_dir / pack_name
+
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for item in outputs:
+            path = Path(item)
+            try:
+                arcname = path.relative_to(output_dir)
+            except ValueError:
+                arcname = Path(path.name)
+            archive.write(path, arcname=str(arcname))
+
     return {
         "output_dir": str(output_dir),
         "outputs": outputs,
+        "zip": str(zip_path),
+        "families": family_names,
+        "variant_count": len(outputs),
         "repaired": repaired,
         "count": len(repaired),
     }

@@ -84,6 +84,10 @@ jobs:
             engine/nuitka_entry.py
           cp "build-engine/${{ matrix.engine_name }}" "desktop/src-tauri/engine/${{ matrix.engine_name }}"
 
+      - name: Test bundled sidecar with real Averia
+        shell: bash
+        run: python scripts/test_sidecar_averia.py "desktop/src-tauri/engine/${{ matrix.engine_name }}"
+
       - name: Install desktop dependencies
         working-directory: desktop
         run: npm install

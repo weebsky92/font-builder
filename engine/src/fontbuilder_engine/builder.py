@@ -154,6 +154,7 @@ def _discrete(analysis: Analysis, out_ttf: Path) -> dict:
         if has_roman and has_italic:
             box["ital"] = (0.5, 1.0) if s.italic else (0.0, 0.4999)
         conditional.append(([box], sub_maps[(s.italic, s.weight)]))
+    prepare_font_for_save(base)
     if conditional:
         addFeatureVariations(base, conditional, featureTag="rvrn")
 

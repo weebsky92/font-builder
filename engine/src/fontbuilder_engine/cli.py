@@ -98,11 +98,11 @@ def main(argv=None):
                         "ignored": session.ignored,
                     }
 
-            print(json.dumps(payload, indent=2, ensure_ascii=False))
+            print(json.dumps(payload, indent=2, ensure_ascii=True))
             return 0
 
     except Exception as exc:
-        print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
+        print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=True), file=sys.stderr)
         return 2
 
 

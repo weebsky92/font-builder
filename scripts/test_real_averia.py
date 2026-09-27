@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import traceback
 import urllib.request
@@ -31,7 +32,7 @@ with tempfile.TemporaryDirectory(prefix="averia-real-") as td:
 
     try:
         audit = audit_paths(paths)
-        print("AUDIT_OK", audit)
+        print("AUDIT_OK", audit["families"][0]["missing_count"], "missing")
     except Exception:
         print("AUDIT_FAIL")
         traceback.print_exc()
@@ -40,7 +41,7 @@ with tempfile.TemporaryDirectory(prefix="averia-real-") as td:
     groups = group_fonts(paths)
     family_name, sources = next(iter(groups.items()))
     analysis = analyze_family(family_name, sources)
-    print("ANALYSIS", analysis.json())
+    print("ANALYSIS", json.dumps(analysis.json(), ensure_ascii=True))
 
     out = root / "build"
     try:

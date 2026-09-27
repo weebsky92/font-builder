@@ -56,6 +56,10 @@ jobs:
           python -m fontbuilder_engine --version
           python -m pytest engine/tests
 
+      - name: Real Averia regression
+        shell: bash
+        run: python scripts/test_real_averia.py
+
       - name: Generate desktop icons
         shell: bash
         run: python scripts/generate_dev_icons.py

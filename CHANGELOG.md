@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.0-alpha.9 - 2026-09-27
+
+### Fixed
+- Windows Polish-glyph audit no longer fails on CP1252 when returning characters such as Ą / Ć / Ę
+- legacy `OS/2.usMaxContext` is hydrated before FontTools `addFeatureVariations()`
+- historical `usMaxContex` spelling is used as a fallback when present
+
+### Verified
+- real 6-master Averia Serif Libre family downloaded from Google Fonts in CI
+- real Averia Polish-glyph audit passes on Windows and macOS
+- real Averia Variable Font build passes on Windows and macOS
+- compiled Nuitka sidecar passes the same Averia audit + build regression on Windows and macOS
+
+
 ## 0.1.0-alpha.8 - 2026-09-27
 
 ### Changed

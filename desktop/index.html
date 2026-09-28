@@ -66,6 +66,7 @@
 
       <div class="bottom-actions analysis-actions">
         <button id="back-input" class="secondary" data-i18n="actions.back">WSTECZ</button>
+        <button id="font-tools-action" class="secondary" data-i18n="actions.fontTools">FONT TOOLS</button>
         <button id="glyph-action" class="secondary" disabled data-i18n="actions.glyphRepair">DORYSUJ POLSKIE ZNAKI</button>
         <button id="build" disabled data-i18n="actions.build">ZBUDUJ FONT ZMIENNY</button>
       </div>
@@ -137,6 +138,130 @@
         <div class="modal-footer">
           <span id="settings-message" class="settings-message"></span>
           <button id="settings-save" data-i18n="settings.save">ZAPISZ USTAWIENIA</button>
+        </div>
+      </div>
+    </section>
+
+
+    <section id="font-tools-modal" class="modal font-tools-modal hidden" aria-hidden="true">
+      <div class="modal-backdrop" data-close-font-tools></div>
+      <div class="font-tools-shell" role="dialog" aria-modal="true" aria-labelledby="font-tools-title">
+        <header class="font-tools-head">
+          <div>
+            <span class="modal-kicker" data-i18n="tools.kicker">FONT TOOLS</span>
+            <h2 id="font-tools-title" data-i18n="tools.title">Warsztat fontu</h2>
+            <p id="tools-family"></p>
+          </div>
+          <div class="font-tools-head-actions">
+            <select id="tools-variant" aria-label="Variant"></select>
+            <button id="font-tools-close" class="icon-btn close-btn" aria-label="Close">×</button>
+          </div>
+        </header>
+
+        <div class="font-tools-layout">
+          <aside class="font-tools-nav">
+            <button class="tool-nav-btn active" data-tool-tab="preview"><span>01</span><strong data-i18n="tools.preview">Podgląd</strong></button>
+            <button class="tool-nav-btn" data-tool-tab="charmap"><span>02</span><strong data-i18n="tools.charmap">Znaki</strong></button>
+            <button class="tool-nav-btn" data-tool-tab="health"><span>03</span><strong data-i18n="tools.health">Health</strong></button>
+            <button class="tool-nav-btn" data-tool-tab="metadata"><span>04</span><strong data-i18n="tools.metadata">Metadane</strong></button>
+            <button class="tool-nav-btn" data-tool-tab="convert"><span>05</span><strong data-i18n="tools.convert">Konwersja</strong></button>
+          </aside>
+
+          <section class="font-tools-content">
+            <div id="tools-tab-preview" class="tool-pane active">
+              <div class="tool-pane-head">
+                <div>
+                  <span class="modal-kicker" data-i18n="tools.previewKicker">TEST DRIVE</span>
+                  <h3 data-i18n="tools.previewTitle">Sprawdź font na żywo</h3>
+                </div>
+                <label class="tool-size-control">
+                  <span data-i18n="tools.size">Rozmiar</span>
+                  <input id="tools-preview-size" type="range" min="18" max="140" value="58" />
+                  <b id="tools-preview-size-value">58 px</b>
+                </label>
+              </div>
+              <textarea id="tools-preview-text" class="tool-text-input">Zażółć gęślą jaźń. Pchnąć w tę łódź jeża lub ośm skrzyń fig.</textarea>
+              <div id="tools-preview-canvas" class="tool-preview-canvas">Zażółć gęślą jaźń.</div>
+            </div>
+
+            <div id="tools-tab-charmap" class="tool-pane">
+              <div class="tool-pane-head">
+                <div>
+                  <span class="modal-kicker" data-i18n="tools.charmapKicker">CHARACTER MAP</span>
+                  <h3 data-i18n="tools.charmapTitle">Mapa znaków</h3>
+                </div>
+                <div id="tools-charmap-count" class="tool-counter"></div>
+              </div>
+              <input id="tools-charmap-search" class="tool-search" type="search" data-i18n-placeholder="tools.searchChars" placeholder="Szukaj znaku, Unicode albo glyph name…" />
+              <div id="tools-charmap-grid" class="tool-charmap-grid"></div>
+              <button id="tools-charmap-more" class="secondary tool-more hidden" data-i18n="tools.moreChars">POKAŻ WIĘCEJ</button>
+            </div>
+
+            <div id="tools-tab-health" class="tool-pane">
+              <div class="tool-pane-head">
+                <div>
+                  <span class="modal-kicker" data-i18n="tools.healthKicker">FONT HEALTH</span>
+                  <h3 data-i18n="tools.healthTitle">Kontrola techniczna</h3>
+                </div>
+              </div>
+              <div id="tools-health-summary" class="tool-health-summary"></div>
+              <div class="tool-health-columns">
+                <section>
+                  <h4 data-i18n="tools.familyHealth">Rodzina</h4>
+                  <div id="tools-family-health" class="tool-issue-list"></div>
+                </section>
+                <section>
+                  <h4 data-i18n="tools.variantHealth">Wybrany wariant</h4>
+                  <div id="tools-font-health" class="tool-issue-list"></div>
+                </section>
+              </div>
+            </div>
+
+            <div id="tools-tab-metadata" class="tool-pane">
+              <div class="tool-pane-head">
+                <div>
+                  <span class="modal-kicker" data-i18n="tools.metadataKicker">NAME TABLE</span>
+                  <h3 data-i18n="tools.metadataTitle">Nazwy i metadane</h3>
+                </div>
+              </div>
+              <div class="metadata-grid">
+                <label><span>Family Name</span><input id="meta-family" /></label>
+                <label><span>Style</span><input id="meta-style" /></label>
+                <label class="wide"><span>Full Name</span><input id="meta-full-name" /></label>
+                <label><span>PostScript Name</span><input id="meta-postscript" /></label>
+                <label><span>Version</span><input id="meta-version" /></label>
+              </div>
+              <div class="tool-action-row">
+                <div>
+                  <strong data-i18n="tools.metadataSafe">Oryginał pozostaje nietknięty</strong>
+                  <small data-i18n="tools.metadataSafeHelp">Zapisujemy nową kopię fontu.</small>
+                </div>
+                <button id="tools-save-metadata" data-i18n="tools.saveMetadata">ZAPISZ KOPIĘ</button>
+              </div>
+              <div id="tools-metadata-message" class="tool-message"></div>
+            </div>
+
+            <div id="tools-tab-convert" class="tool-pane">
+              <div class="tool-pane-head">
+                <div>
+                  <span class="modal-kicker" data-i18n="tools.convertKicker">WEBFONT</span>
+                  <h3 data-i18n="tools.convertTitle">Konwerter rodziny</h3>
+                </div>
+              </div>
+              <div class="convert-options">
+                <label><input id="convert-woff" type="checkbox" checked /><span>WOFF</span></label>
+                <label><input id="convert-woff2" type="checkbox" checked /><span>WOFF2</span></label>
+              </div>
+              <div class="tool-action-row">
+                <div>
+                  <strong data-i18n="tools.convertFamily">Konwertuj wszystkie warianty</strong>
+                  <small data-i18n="tools.convertFamilyHelp">Powstanie ZIP oraz osobne pliki webfontów.</small>
+                </div>
+                <button id="tools-convert-run" data-i18n="tools.convertRun">KONWERTUJ</button>
+              </div>
+              <div id="tools-convert-result" class="tool-convert-result"></div>
+            </div>
+          </section>
         </div>
       </div>
     </section>

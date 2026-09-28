@@ -67,5 +67,12 @@ def test_font_tools_inspect_metadata_and_conversion(tmp_path: Path):
 
     conv_out = tmp_path / "convert"
     converted = convert_formats([src], conv_out, ["woff", "woff2"])
-    assert len(converted["outputs"]) == 2
+    assert len(converted["outputs"]) == 3
     assert Path(converted["zip"]).exists()
+    assert Path(converted["css"]).exists()
+    css = Path(converted["css"]).read_text(encoding="utf-8")
+    assert "@font-face" in css
+    assert "font-family: 'ToolsTest'" in css
+    assert "font-weight: 400" in css
+    assert "tools.woff2" in css
+    assert "tools.woff" in css

@@ -655,10 +655,16 @@ async function loadToolFontFace() {
 
     const canvas = $('tools-preview-canvas');
     if (canvas) canvas.style.fontFamily = '"' + faceName + '"';
+
+    const charmap = $('tools-charmap-grid');
+    if (charmap) charmap.style.setProperty('--tool-preview-font', '"' + faceName + '"');
   } catch (error) {
     console.warn('Font preview load failed', error);
     const canvas = $('tools-preview-canvas');
     if (canvas) canvas.style.fontFamily = 'inherit';
+
+    const charmap = $('tools-charmap-grid');
+    if (charmap) charmap.style.removeProperty('--tool-preview-font');
   }
 }
 
@@ -755,14 +761,18 @@ function renderCharmapTool() {
 function issueHtml(issue) {
   const level = issue?.level || 'info';
   const icon = level === 'ok' ? '✓' : level === 'error' ? '!' : level === 'warning' ? '!' : 'i';
-  const key = 'tools.issue.' + (issue.code || '');
-  const translated = t(key);
-  const message = translated === key ? (issue.message || '') : translated;
+  const messageKey = 'tools.issue.' + (issue.code || '');
+  const titleKey = 'tools.issueTitle.' + (issue.code || '');
+  const translatedMessage = t(messageKey);
+  const translatedTitle = t(titleKey);
+  const message = translatedMessage === messageKey ? (issue.message || '') : translatedMessage;
+  const title = translatedTitle === titleKey ? (issue.code || level) : translatedTitle;
+
   return `
-    <div class="tool-issue ${esc(level)}">
+    <div class="tool-issue ${esc(level)}" title="${esc(issue.code || '')}">
       <span>${icon}</span>
       <div>
-        <strong>${esc(issue.code || level)}</strong>
+        <strong>${esc(title)}</strong>
         <small>${esc(message)}</small>
       </div>
     </div>
@@ -778,6 +788,7 @@ function renderHealthTool() {
   const all = [...familyIssues, ...fontIssues];
   const errors = all.filter(x => x.level === 'error').length;
   const warnings = all.filter(x => x.level === 'warning').length;
+  const info = all.filter(x => x.level === 'info').length;
 
   const summary = $('tools-health-summary');
   if (summary) {
@@ -786,11 +797,28 @@ function renderHealthTool() {
       <div><span>UPM</span><strong>${item.upm}</strong></div>
       <div><span>${esc(t('tools.errors'))}</span><strong>${errors}</strong></div>
       <div><span>${esc(t('tools.warnings'))}</span><strong>${warnings}</strong></div>
+      <div><span>${esc(t('tools.info'))}</span><strong>${info}</strong></div>
     `;
   }
 
   $('tools-family-health').innerHTML = familyIssues.map(issueHtml).join('');
   $('tools-font-health').innerHTML = fontIssues.map(issueHtml).join('');
+}
+
+function safePostScriptName(value) {
+  return String(value || '')
+    .trim()
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'FontBuilder-Font';
+}
+
+function syncMetadataNames() {
+  if (!$('meta-autosync')?.checked) return;
+  const family = $('meta-family').value.trim();
+  const style = $('meta-style').value.trim();
+  const full = [family, style].filter(Boolean).join(' ').trim();
+  $('meta-full-name').value = full;
+  $('meta-postscript').value = safePostScriptName([family, style].filter(Boolean).join('-'));
 }
 
 function renderMetadataTool() {
@@ -1415,6 +1443,11 @@ $('tools-charmap-search').addEventListener('input', () => {
 $('tools-charmap-more').addEventListener('click', () => {
   state.fontToolsCharmapLimit += 800;
   renderCharmapTool();
+});
+$('meta-family').addEventListener('input', syncMetadataNames);
+$('meta-style').addEventListener('input', syncMetadataNames);
+$('meta-autosync').addEventListener('change', () => {
+  if ($('meta-autosync').checked) syncMetadataNames();
 });
 $('tools-save-metadata').addEventListener('click', saveToolMetadata);
 $('tools-convert-run').addEventListener('click', runToolConvert);

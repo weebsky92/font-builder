@@ -1489,6 +1489,7 @@ button:disabled {
 
 .tool-char-cell strong {
   display: block;
+  font-family: var(--tool-preview-font, inherit);
   min-height: 28px;
   color: #eeeef2;
   font-size: 25px;
@@ -1523,7 +1524,7 @@ button:disabled {
 
 .tool-health-summary {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   border: 1px solid #292930;
   border-radius: 16px;
   overflow: hidden;
@@ -1787,4 +1788,36 @@ button:disabled {
   .tool-preview-canvas {
     min-height: 280px;
   }
+}
+
+
+.metadata-autosync {
+  margin-bottom: 12px;
+  padding: 11px 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #302a3c;
+  border-radius: 12px;
+  background: rgba(157,131,255,.055);
+  cursor: pointer;
+}
+
+.metadata-autosync input {
+  accent-color: #9d83ff;
+}
+
+.metadata-autosync strong,
+.metadata-autosync small {
+  display: block;
+}
+
+.metadata-autosync strong {
+  font-size: 10px;
+}
+
+.metadata-autosync small {
+  margin-top: 3px;
+  color: #777783;
+  font-size: 9px;
 }

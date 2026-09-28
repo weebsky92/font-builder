@@ -1,6 +1,6 @@
 # Font Builder - Project
 
-Version: `0.1.0-alpha.11`
+Version: `0.1.0-alpha.11.1`
 License: MIT
 Repository: `weebsky92/font-builder`
 
@@ -197,6 +197,16 @@ Static CFF metadata is synchronized where available.
 
 ### Desktop safety
 Font preview bytes can only be read from Font Builder's own temporary output directory.
+
+## Alpha 11.1 polish pass
+
+Runtime QA of Alpha 11 identified several UI refinements. Alpha 11.1 adds:
+- Character Map glyphs rendered with the currently selected real font variant,
+- spellcheck/autocorrect disabled in Test Drive,
+- Health Check information counter and human-readable issue titles,
+- optional automatic synchronization of Full Name and PostScript Name from Family + Style,
+- generated `fonts.css` with @font-face declarations for the whole converted family,
+- `fonts.css` included in the webfont ZIP and individual output list.
 
 ## Next checkpoint
 

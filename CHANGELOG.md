@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.0-alpha.11.1 - 2026-09-28
+
+### Fixed
+- Character Map now renders glyph samples with the currently selected real font variant
+- Test Drive disables browser/WebView spelling and autocorrect decoration
+- Health Check no longer exposes raw issue codes as primary labels
+- Health summary now counts informational findings separately
+
+### Added
+- optional metadata name autosync: Family + Style -> Full Name + PostScript Name
+- generated whole-family `fonts.css` with @font-face declarations
+- CSS is included in the Webfont ZIP and can also be saved individually
+- regression assertions for generated CSS
+
 ## 0.1.0-alpha.11 - 2026-09-28
 
 ### Added

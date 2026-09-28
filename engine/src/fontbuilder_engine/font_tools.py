@@ -279,8 +279,18 @@ def convert_formats(
     output_dir.mkdir(parents=True, exist_ok=True)
     ordered = _font_order(paths)
     outputs: list[str] = []
+    css_rules: list[str] = []
 
     for source_path in ordered:
+        source_font = TTFont(source_path, lazy=False)
+        family = _name(source_font, NAME_IDS["family"]) or source_path.stem
+        style_name = _name(source_font, NAME_IDS["style"]) or "Regular"
+        weight = int(getattr(source_font.get("OS/2"), "usWeightClass", 400) or 400)
+        fs = int(getattr(source_font.get("OS/2"), "fsSelection", 0) or 0)
+        mac = int(getattr(source_font.get("head"), "macStyle", 0) or 0)
+        italic = bool(fs & 0x01 or mac & 0x02 or re.search(r"italic|oblique", style_name, re.I))
+
+        src_parts: list[str] = []
         for fmt in allowed:
             font = TTFont(source_path, lazy=False)
             prepare_font_for_save(font)
@@ -288,6 +298,23 @@ def convert_formats(
             out_path = output_dir / f"{source_path.stem}.{fmt}"
             font.save(out_path)
             outputs.append(str(out_path))
+            css_format = "woff2" if fmt == "woff2" else "woff"
+            src_parts.append(f"url('./{out_path.name}') format('{css_format}')")
+
+        css_family = family.replace("\\", "\\\\").replace("'", "\\'")
+        css_rules.append(
+            "@font-face {\n"
+            f"  font-family: '{css_family}';\n"
+            f"  src: {', '.join(src_parts)};\n"
+            f"  font-weight: {weight};\n"
+            f"  font-style: {'italic' if italic else 'normal'};\n"
+            "  font-display: swap;\n"
+            "}\n"
+        )
+
+    css_path = output_dir / "fonts.css"
+    css_path.write_text("\n".join(css_rules), encoding="utf-8")
+    outputs.append(str(css_path))
 
     zip_path = output_dir / "FontBuilder-Webfonts.zip"
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
@@ -299,5 +326,6 @@ def convert_formats(
         "formats": allowed,
         "outputs": outputs,
         "zip": str(zip_path),
+        "css": str(css_path),
         "count": len(outputs),
     }

@@ -10,7 +10,7 @@
     <header class="topbar">
       <div>
         <p class="eyebrow" data-i18n="eyebrow">LOKALNE NARZĘDZIE DO FONTÓW</p>
-        <h1>Font Builder <span>α11</span></h1>
+        <h1>Font Builder <span>α11.1</span></h1>
       </div>
 
       <div class="top-actions">
@@ -180,7 +180,7 @@
                   <b id="tools-preview-size-value">58 px</b>
                 </label>
               </div>
-              <textarea id="tools-preview-text" class="tool-text-input">Zażółć gęślą jaźń. Pchnąć w tę łódź jeża lub ośm skrzyń fig.</textarea>
+              <textarea id="tools-preview-text" class="tool-text-input" spellcheck="false" autocorrect="off" autocapitalize="off">Zażółć gęślą jaźń. Pchnąć w tę łódź jeża lub ośm skrzyń fig.</textarea>
               <div id="tools-preview-canvas" class="tool-preview-canvas">Zażółć gęślą jaźń.</div>
             </div>
 
@@ -224,6 +224,13 @@
                   <h3 data-i18n="tools.metadataTitle">Nazwy i metadane</h3>
                 </div>
               </div>
+              <label class="metadata-autosync">
+                <input id="meta-autosync" type="checkbox" checked />
+                <span>
+                  <strong data-i18n="tools.metadataAuto">Automatycznie synchronizuj nazwy</strong>
+                  <small data-i18n="tools.metadataAutoHelp">Family + Style uzupełnią Full Name i PostScript Name.</small>
+                </span>
+              </label>
               <div class="metadata-grid">
                 <label><span>Family Name</span><input id="meta-family" /></label>
                 <label><span>Style</span><input id="meta-style" /></label>

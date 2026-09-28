@@ -157,6 +157,19 @@ fn copy_output_file(source: String, destination: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn read_temp_file(source: String) -> Result<Vec<u8>, String> {
+    let src = fs::canonicalize(&source).map_err(|e| e.to_string())?;
+    let allowed_root = temp_root();
+    let allowed = fs::canonicalize(&allowed_root).unwrap_or(allowed_root);
+
+    if !src.starts_with(&allowed) {
+        return Err("Refusing to read a file outside Font Builder temporary output.".into());
+    }
+
+    fs::read(src).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn get_desktop_settings(state: tauri::State<'_, SettingsState>) -> DesktopSettings {
     state.0.lock().unwrap().clone()
 }
@@ -259,6 +272,7 @@ pub fn run() {
             run_engine,
             create_build_dir,
             copy_output_file,
+            read_temp_file,
             get_desktop_settings,
             set_desktop_settings
         ])

@@ -9,6 +9,7 @@ from .builder import build_family
 from .glyphlab import audit_paths, preview_path, repair_paths
 from .ingest import IngestSession
 from .inspect import group_fonts, analyze_family
+from .font_tools import inspect_tools, update_metadata, convert_formats
 
 
 def parser() -> argparse.ArgumentParser:
@@ -38,6 +39,21 @@ def parser() -> argparse.ArgumentParser:
     gr.add_argument("--recipes-json", required=True)
     gr.add_argument("inputs", nargs="+")
 
+    ft = sub.add_parser("font-tools")
+    ft.add_argument("-o", "--output", required=True)
+    ft.add_argument("inputs", nargs="+")
+
+    fm = sub.add_parser("metadata-update")
+    fm.add_argument("-o", "--output", required=True)
+    fm.add_argument("--index", type=int, required=True)
+    fm.add_argument("--metadata-json", required=True)
+    fm.add_argument("inputs", nargs="+")
+
+    fc = sub.add_parser("convert")
+    fc.add_argument("-o", "--output", required=True)
+    fc.add_argument("--formats", default="woff,woff2")
+    fc.add_argument("inputs", nargs="+")
+
     return p
 
 
@@ -47,7 +63,38 @@ def main(argv=None):
         with IngestSession() as session:
             paths = session.collect(args.inputs)
 
-            if args.cmd == "glyph-audit":
+            if args.cmd == "font-tools":
+                payload = {
+                    "ok": True,
+                    "version": __version__,
+                    "tools": inspect_tools(paths, Path(args.output).resolve()),
+                    "ignored": session.ignored,
+                }
+
+            elif args.cmd == "metadata-update":
+                metadata = json.loads(args.metadata_json)
+                payload = {
+                    "ok": True,
+                    "version": __version__,
+                    "result": update_metadata(
+                        paths,
+                        Path(args.output).resolve(),
+                        args.index,
+                        metadata,
+                    ),
+                    "ignored": session.ignored,
+                }
+
+            elif args.cmd == "convert":
+                formats = [x.strip().lower() for x in args.formats.split(",") if x.strip()]
+                payload = {
+                    "ok": True,
+                    "version": __version__,
+                    "result": convert_formats(paths, Path(args.output).resolve(), formats),
+                    "ignored": session.ignored,
+                }
+
+            elif args.cmd == "glyph-audit":
                 payload = {
                     "ok": True,
                     "version": __version__,

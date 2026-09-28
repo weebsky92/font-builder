@@ -755,12 +755,15 @@ function renderCharmapTool() {
 function issueHtml(issue) {
   const level = issue?.level || 'info';
   const icon = level === 'ok' ? '✓' : level === 'error' ? '!' : level === 'warning' ? '!' : 'i';
+  const key = 'tools.issue.' + (issue.code || '');
+  const translated = t(key);
+  const message = translated === key ? (issue.message || '') : translated;
   return `
     <div class="tool-issue ${esc(level)}">
       <span>${icon}</span>
       <div>
         <strong>${esc(issue.code || level)}</strong>
-        <small>${esc(issue.message || '')}</small>
+        <small>${esc(message)}</small>
       </div>
     </div>
   `;

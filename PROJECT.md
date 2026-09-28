@@ -1,6 +1,6 @@
 # Font Builder - Project
 
-Version: `0.1.0-alpha.10`
+Version: `0.1.0-alpha.11`
 License: MIT
 Repository: `weebsky92/font-builder`
 
@@ -151,11 +151,60 @@ CI verifies this behavior with the real 6-master Averia Serif Libre family and r
 - a generated ZIP,
 - Polish coverage 18/18 after repair.
 
+## Alpha 11 Font Tools
+
+The analysis screen now exposes a dedicated Font Tools workspace.
+
+### Test Drive
+- uses the real selected font file in the desktop WebView
+- editable sample text
+- live size control
+- variant switcher for static family masters
+
+### Character Map
+- searchable Unicode cmap
+- character, Unicode codepoint and glyph name
+- incremental rendering for large fonts
+
+### Health Check
+Family-level checks:
+- mixed UPM values
+- duplicate weight/style slots
+- different cmap coverage across masters
+
+Variant-level checks:
+- required name records
+- Unicode cmap
+- outline type
+- basic layout tables
+- basic structural warnings
+
+### Metadata Editor
+Editable on a non-destructive copy:
+- Family Name
+- Style
+- Full Name
+- PostScript Name
+- Version
+
+Static CFF metadata is synchronized where available.
+
+### Webfont Converter
+- whole-family WOFF export
+- whole-family WOFF2 export
+- individual output files
+- ZIP pack
+
+### Desktop safety
+Font preview bytes can only be read from Font Builder's own temporary output directory.
+
 ## Next checkpoint
 
-`0.1.0-alpha.11`
+`0.1.0-alpha.12`
 
 Primary:
-- Windows runtime validation of family-wide Glyph Lab repair,
-- visual review of generated marks in Light / Regular / Bold / Italic,
-- refine recipe interpolation if any extreme master needs separate correction.
+- Windows runtime QA of Font Tools,
+- Axis Manager for Variable Font settings,
+- Static Instances from Variable Font,
+- webfont subset builder,
+- family batch rename.

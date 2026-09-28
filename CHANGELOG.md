@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.1.0-alpha.11 - 2026-09-28
+
+### Added
+- Font Tools workspace available after analysis
+- live Test Drive using the actual selected font
+- searchable Unicode Character Map
+- family and per-variant Health Check
+- non-destructive Metadata Editor
+- whole-family WOFF / WOFF2 converter
+- ZIP export for converted webfonts
+- safe desktop command for reading preview font bytes only from Font Builder temp output
+- engine tests for Font Tools inspection, metadata editing and conversion
+
+### Changed
+- analysis action bar now exposes Font Tools as a first-class workflow
+- project scope now covers general font inspection and preparation tools in addition to Variable Font build and Glyph Lab
+
+### Known
+- Axis Manager, static instance generation, subset builder and family batch rename remain planned for the next font-tools pass
+- Windows installers remain unsigned and may trigger SmartScreen
+- macOS signing/notarization is not configured yet
+
 ## 0.1.0-alpha.10 - 2026-09-27
 
 ### Added
@@ -76,8 +98,6 @@
 - CFF/CFF2 source masters are still not supported for Variable Font compilation
 - CFF2 Glyph Lab repair is not enabled yet
 - Windows installers remain unsigned and can trigger SmartScreen
-
-# Changelog
 
 ## 0.1.0-alpha.6 - 2026-09-24
 

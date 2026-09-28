@@ -21,6 +21,12 @@ const state = {
   repairedZip: null,
   glyphAuditError: null,
   replaceOnNextAdd: false,
+  fontTools: null,
+  fontToolsSelected: 0,
+  fontToolsTab: 'preview',
+  fontToolsFace: null,
+  fontToolsCharmapLimit: 800,
+  fontToolsConversion: null,
   lang: savedLang || detectedLang,
   settings: {
     close_to_tray: false,
@@ -72,12 +78,17 @@ function setLanguage(lang) {
     el.textContent = t(el.dataset.i18n);
   });
 
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    el.placeholder = t(el.dataset.i18nPlaceholder);
+  });
+
   document.querySelectorAll('.lang-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.lang === lang);
   });
 
   render();
   if (!$('glyph-modal').classList.contains('hidden')) renderGlyphLab();
+  if (!$('font-tools-modal').classList.contains('hidden')) renderFontTools();
 }
 
 function showOverlay(key) {
@@ -220,6 +231,8 @@ function renderAnalysis() {
       <div class="stage-note">${esc(t('analysis.multipleFamiliesNote'))}</div>
     `;
 
+    $('font-tools-action').disabled = true;
+    $('font-tools-action').title = t('analysis.oneFamilyRequired');
     $('glyph-action').disabled = true;
     $('glyph-action').title = t('analysis.oneFamilyRequired');
     $('build').disabled = true;
@@ -356,6 +369,8 @@ function renderAnalysis() {
     if (path) saveOutput(path, ext(path));
   });
 
+  $('font-tools-action').disabled = false;
+  $('font-tools-action').title = '';
   $('glyph-action').disabled = !canRepairGlyphs;
   $('glyph-action').title = canRepairGlyphs
     ? ''
@@ -442,6 +457,12 @@ function resetAll() {
   state.repairedOutputs = [];
   state.repairedZip = null;
   state.glyphAuditError = null;
+  releaseToolFace();
+  state.fontTools = null;
+  state.fontToolsSelected = 0;
+  state.fontToolsTab = 'preview';
+  state.fontToolsCharmapLimit = 800;
+  state.fontToolsConversion = null;
   render();
 }
 
@@ -465,6 +486,12 @@ function addPaths(paths) {
   state.repairedOutputs = [];
   state.repairedZip = null;
   state.glyphAuditError = null;
+  releaseToolFace();
+  state.fontTools = null;
+  state.fontToolsSelected = 0;
+  state.fontToolsTab = 'preview';
+  state.fontToolsCharmapLimit = 800;
+  state.fontToolsConversion = null;
   state.step = 1;
   render();
 }
@@ -599,6 +626,348 @@ async function saveSettings() {
     message.className = 'settings-message error';
   }
 }
+
+function selectedToolFont() {
+  return state.fontTools?.fonts?.[state.fontToolsSelected] || null;
+}
+
+function releaseToolFace() {
+  if (state.fontToolsFace) {
+    try { document.fonts.delete(state.fontToolsFace); } catch (_) {}
+    state.fontToolsFace = null;
+  }
+}
+
+async function loadToolFontFace() {
+  const item = selectedToolFont();
+  if (!item?.preview_path) return;
+
+  releaseToolFace();
+
+  try {
+    const bytes = await invoke('read_temp_file', { source: item.preview_path });
+    const data = new Uint8Array(bytes);
+    const faceName = 'FontBuilderPreview_' + Date.now();
+    const face = new FontFace(faceName, data.buffer);
+    await face.load();
+    document.fonts.add(face);
+    state.fontToolsFace = face;
+
+    const canvas = $('tools-preview-canvas');
+    if (canvas) canvas.style.fontFamily = '"' + faceName + '"';
+  } catch (error) {
+    console.warn('Font preview load failed', error);
+    const canvas = $('tools-preview-canvas');
+    if (canvas) canvas.style.fontFamily = 'inherit';
+  }
+}
+
+function toolFamilyName() {
+  return state.fontTools?.fonts?.[0]?.family || analysisData()?.family || '';
+}
+
+function renderToolVariantSelect() {
+  const select = $('tools-variant');
+  const fonts = state.fontTools?.fonts || [];
+  if (!select) return;
+
+  select.innerHTML = fonts.map((font, index) => {
+    const label = [
+      font.style || font.file_name,
+      font.weight ? String(font.weight) : '',
+      font.italic ? 'italic' : ''
+    ].filter(Boolean).join(' · ');
+    return '<option value="' + index + '">' + esc(label) + '</option>';
+  }).join('');
+  select.value = String(Math.min(state.fontToolsSelected, Math.max(0, fonts.length - 1)));
+}
+
+function renderPreviewTool() {
+  const item = selectedToolFont();
+  if (!item) return;
+
+  const canvas = $('tools-preview-canvas');
+  const input = $('tools-preview-text');
+  const slider = $('tools-preview-size');
+  const value = $('tools-preview-size-value');
+
+  if (canvas && input && !canvas.dataset.initialized) {
+    canvas.textContent = input.value;
+    canvas.dataset.initialized = '1';
+  }
+
+  if (canvas && slider) canvas.style.fontSize = slider.value + 'px';
+  if (value && slider) value.textContent = slider.value + ' px';
+
+  if (state.fontToolsFace && canvas) {
+    canvas.style.fontFamily = '"' + state.fontToolsFace.family + '"';
+  }
+}
+
+function filteredToolCharacters() {
+  const item = selectedToolFont();
+  if (!item) return [];
+  const query = ($('tools-charmap-search')?.value || '').trim().toLowerCase();
+
+  if (!query) return item.characters || [];
+
+  return (item.characters || []).filter(entry => {
+    const hay = [
+      entry.char,
+      entry.unicode,
+      entry.glyph,
+      String(entry.codepoint)
+    ].join(' ').toLowerCase();
+    return hay.includes(query);
+  });
+}
+
+function renderCharmapTool() {
+  const all = filteredToolCharacters();
+  const limit = Math.max(100, state.fontToolsCharmapLimit || 800);
+  const shown = all.slice(0, limit);
+  const grid = $('tools-charmap-grid');
+  const count = $('tools-charmap-count');
+  const more = $('tools-charmap-more');
+
+  if (count) count.textContent = shown.length + ' / ' + all.length;
+
+  if (grid) {
+    grid.innerHTML = shown.map(entry => {
+      let display = entry.char || '·';
+      if (/^\s$/u.test(display)) display = '␠';
+      if (entry.codepoint < 32 || (entry.codepoint >= 127 && entry.codepoint <= 159)) display = '·';
+      return `
+        <div class="tool-char-cell" title="${esc(entry.glyph)}">
+          <strong>${esc(display)}</strong>
+          <span>${esc(entry.unicode)}</span>
+          <small>${esc(entry.glyph)}</small>
+        </div>
+      `;
+    }).join('');
+  }
+
+  if (more) {
+    more.classList.toggle('hidden', shown.length >= all.length);
+  }
+}
+
+function issueHtml(issue) {
+  const level = issue?.level || 'info';
+  const icon = level === 'ok' ? '✓' : level === 'error' ? '!' : level === 'warning' ? '!' : 'i';
+  return `
+    <div class="tool-issue ${esc(level)}">
+      <span>${icon}</span>
+      <div>
+        <strong>${esc(issue.code || level)}</strong>
+        <small>${esc(issue.message || '')}</small>
+      </div>
+    </div>
+  `;
+}
+
+function renderHealthTool() {
+  const item = selectedToolFont();
+  if (!item) return;
+
+  const familyIssues = state.fontTools?.family_health || [];
+  const fontIssues = item.health || [];
+  const all = [...familyIssues, ...fontIssues];
+  const errors = all.filter(x => x.level === 'error').length;
+  const warnings = all.filter(x => x.level === 'warning').length;
+
+  const summary = $('tools-health-summary');
+  if (summary) {
+    summary.innerHTML = `
+      <div><span>${esc(t('tools.glyphCount'))}</span><strong>${item.glyph_count}</strong></div>
+      <div><span>UPM</span><strong>${item.upm}</strong></div>
+      <div><span>${esc(t('tools.errors'))}</span><strong>${errors}</strong></div>
+      <div><span>${esc(t('tools.warnings'))}</span><strong>${warnings}</strong></div>
+    `;
+  }
+
+  $('tools-family-health').innerHTML = familyIssues.map(issueHtml).join('');
+  $('tools-font-health').innerHTML = fontIssues.map(issueHtml).join('');
+}
+
+function renderMetadataTool() {
+  const item = selectedToolFont();
+  if (!item) return;
+  const names = item.names || {};
+
+  $('meta-family').value = names.family || '';
+  $('meta-style').value = names.style || '';
+  $('meta-full-name').value = names.full_name || '';
+  $('meta-postscript').value = names.postscript || '';
+  $('meta-version').value = names.version || '';
+}
+
+function renderConvertResult() {
+  const result = state.fontToolsConversion;
+  const box = $('tools-convert-result');
+  if (!box) return;
+
+  if (!result) {
+    box.innerHTML = '';
+    return;
+  }
+
+  box.innerHTML = `
+    <div class="tool-convert-success">
+      <div>
+        <strong>✓ ${esc(t('tools.convertDone'))}</strong>
+        <small>${result.count} ${esc(t('tools.filesReady'))}</small>
+      </div>
+      <button id="tools-download-convert-zip">${esc(t('tools.downloadZip'))}</button>
+    </div>
+    <div class="tool-convert-files">
+      ${(result.outputs || []).map(path => `
+        <button class="secondary" data-tool-convert-path="${esc(path)}">${esc(basename(path))}</button>
+      `).join('')}
+    </div>
+  `;
+
+  $('tools-download-convert-zip')?.addEventListener('click', () => saveOutput(result.zip, 'zip'));
+  document.querySelectorAll('[data-tool-convert-path]').forEach(button => {
+    button.addEventListener('click', () => {
+      const path = button.dataset.toolConvertPath;
+      saveOutput(path, ext(path));
+    });
+  });
+}
+
+function renderFontTools() {
+  if (!state.fontTools) return;
+
+  $('tools-family').textContent = toolFamilyName();
+  renderToolVariantSelect();
+
+  document.querySelectorAll('.tool-nav-btn').forEach(button => {
+    button.classList.toggle('active', button.dataset.toolTab === state.fontToolsTab);
+  });
+  document.querySelectorAll('.tool-pane').forEach(pane => pane.classList.remove('active'));
+  $('tools-tab-' + state.fontToolsTab)?.classList.add('active');
+
+  if (state.fontToolsTab === 'preview') renderPreviewTool();
+  if (state.fontToolsTab === 'charmap') renderCharmapTool();
+  if (state.fontToolsTab === 'health') renderHealthTool();
+  if (state.fontToolsTab === 'metadata') renderMetadataTool();
+  if (state.fontToolsTab === 'convert') renderConvertResult();
+}
+
+async function openFontTools() {
+  if ((state.analysis?.families || []).length !== 1) return;
+
+  showOverlay('loading.fontTools');
+  try {
+    const output = await invoke('create_build_dir');
+    const response = await invoke('run_engine', {
+      args: ['font-tools', '-o', output, ...state.paths]
+    });
+
+    state.fontTools = response.tools;
+    state.fontToolsSelected = 0;
+    state.fontToolsTab = 'preview';
+    state.fontToolsCharmapLimit = 800;
+    state.fontToolsConversion = null;
+
+    $('font-tools-modal').classList.remove('hidden');
+    $('font-tools-modal').setAttribute('aria-hidden', 'false');
+    renderFontTools();
+    await loadToolFontFace();
+    renderPreviewTool();
+  } catch (error) {
+    alert(t('error.title') + '\n\n' + String(error));
+  } finally {
+    hideOverlay();
+  }
+}
+
+function closeFontTools() {
+  $('font-tools-modal').classList.add('hidden');
+  $('font-tools-modal').setAttribute('aria-hidden', 'true');
+}
+
+async function selectToolVariant(index) {
+  state.fontToolsSelected = Math.max(0, Number(index) || 0);
+  state.fontToolsCharmapLimit = 800;
+  renderFontTools();
+  await loadToolFontFace();
+  renderPreviewTool();
+}
+
+function switchToolTab(tab) {
+  state.fontToolsTab = tab;
+  renderFontTools();
+}
+
+async function saveToolMetadata() {
+  const item = selectedToolFont();
+  if (!item) return;
+
+  showOverlay('loading.metadata');
+  const message = $('tools-metadata-message');
+
+  try {
+    const output = await invoke('create_build_dir');
+    const metadata = {
+      family: $('meta-family').value.trim(),
+      style: $('meta-style').value.trim(),
+      full_name: $('meta-full-name').value.trim(),
+      postscript: $('meta-postscript').value.trim(),
+      version: $('meta-version').value.trim()
+    };
+
+    const response = await invoke('run_engine', {
+      args: [
+        'metadata-update',
+        '-o', output,
+        '--index', String(item.index),
+        '--metadata-json', JSON.stringify(metadata),
+        ...state.paths
+      ]
+    });
+
+    message.textContent = t('tools.metadataDone');
+    message.className = 'tool-message success';
+    await saveOutput(response.result.output, ext(response.result.output));
+  } catch (error) {
+    message.textContent = t('tools.metadataError') + ' ' + String(error);
+    message.className = 'tool-message error';
+  } finally {
+    hideOverlay();
+  }
+}
+
+async function runToolConvert() {
+  const formats = [];
+  if ($('convert-woff').checked) formats.push('woff');
+  if ($('convert-woff2').checked) formats.push('woff2');
+  if (!formats.length) {
+    alert(t('tools.chooseFormat'));
+    return;
+  }
+
+  showOverlay('loading.convert');
+  try {
+    const output = await invoke('create_build_dir');
+    const response = await invoke('run_engine', {
+      args: [
+        'convert',
+        '-o', output,
+        '--formats', formats.join(','),
+        ...state.paths
+      ]
+    });
+    state.fontToolsConversion = response.result;
+    renderConvertResult();
+  } catch (error) {
+    alert(t('error.title') + '\n\n' + String(error));
+  } finally {
+    hideOverlay();
+  }
+}
+
 
 function glyphItem(char) {
   return glyphFamily()?.chars?.find(item => item.char === char) || null;
@@ -1008,6 +1377,7 @@ $('back-input').addEventListener('click', () => {
   state.replaceOnNextAdd = true;
   render();
 });
+$('font-tools-action').addEventListener('click', openFontTools);
 $('glyph-action').addEventListener('click', openGlyphLab);
 $('build').addEventListener('click', build);
 $('new-build').addEventListener('click', resetAll);
@@ -1021,6 +1391,30 @@ $('settings-open').addEventListener('click', openSettings);
 $('settings-close').addEventListener('click', closeSettings);
 $('settings-save').addEventListener('click', saveSettings);
 document.querySelectorAll('[data-close-settings]').forEach(el => el.addEventListener('click', closeSettings));
+
+$('font-tools-close').addEventListener('click', closeFontTools);
+document.querySelectorAll('[data-close-font-tools]').forEach(el => el.addEventListener('click', closeFontTools));
+$('tools-variant').addEventListener('change', event => selectToolVariant(event.target.value));
+document.querySelectorAll('.tool-nav-btn').forEach(button => {
+  button.addEventListener('click', () => switchToolTab(button.dataset.toolTab));
+});
+$('tools-preview-text').addEventListener('input', event => {
+  $('tools-preview-canvas').textContent = event.target.value || ' ';
+});
+$('tools-preview-size').addEventListener('input', event => {
+  $('tools-preview-canvas').style.fontSize = event.target.value + 'px';
+  $('tools-preview-size-value').textContent = event.target.value + ' px';
+});
+$('tools-charmap-search').addEventListener('input', () => {
+  state.fontToolsCharmapLimit = 800;
+  renderCharmapTool();
+});
+$('tools-charmap-more').addEventListener('click', () => {
+  state.fontToolsCharmapLimit += 800;
+  renderCharmapTool();
+});
+$('tools-save-metadata').addEventListener('click', saveToolMetadata);
+$('tools-convert-run').addEventListener('click', runToolConvert);
 
 $('glyph-close').addEventListener('click', closeGlyphLab);
 document.querySelectorAll('[data-close-glyphs]').forEach(el => el.addEventListener('click', closeGlyphLab));
@@ -1039,6 +1433,7 @@ document.querySelectorAll('.lang-btn').forEach(button => {
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') {
     closeSettings();
+    closeFontTools();
     closeGlyphLab();
   }
 });

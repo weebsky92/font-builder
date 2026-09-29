@@ -208,6 +208,9 @@ Runtime QA of Alpha 11 identified several UI refinements. Alpha 11.1 adds:
 - generated `fonts.css` with @font-face declarations for the whole converted family,
 - `fonts.css` included in the webfont ZIP and individual output list.
 
+### Packaging note
+The public release remains `0.1.0-alpha.11.1`. Windows MSI requires a numeric-only prerelease identifier, so the internal desktop bundle version is `0.1.0-111`.
+
 ## Next checkpoint
 
 `0.1.0-alpha.12`

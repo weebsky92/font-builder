@@ -1,6 +1,6 @@
 # Font Builder - Project
 
-Version: `0.1.0-alpha.11.1`
+Version: `0.1.0-alpha.11.2`
 License: MIT
 Repository: `weebsky92/font-builder`
 
@@ -209,7 +209,27 @@ Runtime QA of Alpha 11 identified several UI refinements. Alpha 11.1 adds:
 - `fonts.css` included in the webfont ZIP and individual output list.
 
 ### Packaging note
-The public release remains `0.1.0-alpha.11.1`. Windows MSI requires a numeric-only prerelease identifier, so the internal desktop bundle version is `0.1.0-111`.
+The Alpha 11.1 public release remains `0.1.0-alpha.11.1`. Windows MSI requires a numeric-only prerelease identifier, so that release used internal desktop bundle version `0.1.0-111`.
+
+## Alpha 11.2 Roman / Italic Glyph Lab profiles
+
+Glyph Lab family recipes are now split into two independent geometry profiles:
+- Roman (`ital=0`)
+- Italic (`ital=1`)
+
+A correction made for Roman masters is propagated only across Roman weights. Italic corrections are stored and propagated separately across Italic weights. Each profile still uses normalized deltas over every master's own AUTO recipe, so Light / Regular / Bold retain their own proportions inside the same profile.
+
+The Glyph Lab UI exposes a Roman / Italic switch whenever both groups are present. Families containing only one profile keep the unavailable profile disabled.
+
+Backward compatibility:
+- pre-11.2 recipes without an explicit profile remain accepted as legacy recipes.
+
+Additional polish:
+- Font Tools inactive navigation labels have improved contrast,
+- Character Map no longer shows "Show more" when all filtered results are already visible.
+
+### Packaging note for Alpha 11.2
+The public release is `0.1.0-alpha.11.2`. Windows MSI uses the numeric internal bundle version `0.1.0-112`.
 
 ## Next checkpoint
 

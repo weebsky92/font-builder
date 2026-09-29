@@ -32,6 +32,7 @@ def parser() -> argparse.ArgumentParser:
     gp = sub.add_parser("glyph-preview")
     gp.add_argument("--char", required=True)
     gp.add_argument("--recipe-json")
+    gp.add_argument("--profile", choices=["roman", "italic"], default="roman")
     gp.add_argument("inputs", nargs="+")
 
     gr = sub.add_parser("glyph-repair")
@@ -107,7 +108,7 @@ def main(argv=None):
                 payload = {
                     "ok": True,
                     "version": __version__,
-                    "preview": preview_path(paths, args.char, recipe),
+                    "preview": preview_path(paths, args.char, recipe, args.profile),
                 }
 
             elif args.cmd == "glyph-repair":

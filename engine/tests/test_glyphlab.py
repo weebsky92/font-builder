@@ -171,3 +171,45 @@ def test_prepare_old_os2_missing_us_max_context(tmp_path: Path):
     font.save(out)
     reopened = TTFont(out)
     assert hasattr(reopened["OS/2"], "usMaxContext")
+
+
+def test_roman_and_italic_recipes_are_independent(tmp_path: Path):
+    roman = tmp_path / "family-regular.ttf"
+    italic = tmp_path / "family-italic.ttf"
+    _font(roman)
+    _font(italic)
+
+    italic_font = TTFont(italic)
+    italic_font["name"].setName("Italic", 2, 3, 1, 0x409)
+    italic_font["name"].setName("GlyphLabTest Italic", 4, 3, 1, 0x409)
+    italic_font["name"].setName("GlyphLabTest-Italic", 6, 3, 1, 0x409)
+    italic_font["OS/2"].fsSelection = int(getattr(italic_font["OS/2"], "fsSelection", 0) or 0) | 0x01
+    italic_font["head"].macStyle = int(getattr(italic_font["head"], "macStyle", 0) or 0) | 0x02
+    italic_font.save(italic)
+
+    audit = audit_paths([roman, italic])
+    family = audit["families"][0]
+    item = next(x for x in family["chars"] if x["char"] == "Ć")
+
+    assert family["profiles"] == {"roman": True, "italic": True}
+    assert set(item["suggested_recipes"]) == {"roman", "italic"}
+
+    roman_recipe = dict(item["suggested_recipes"]["roman"])
+    italic_recipe = dict(item["suggested_recipes"]["italic"])
+    roman_recipe["dx"] = float(roman_recipe["dx"]) + 140
+    italic_recipe["dx"] = float(italic_recipe["dx"]) - 90
+
+    out = tmp_path / "profile-repaired"
+    result = repair_paths([roman, italic], out, [roman_recipe, italic_recipe])
+
+    by_name = {Path(path).name: TTFont(path) for path in result["outputs"]}
+    roman_glyph = by_name[roman.name]["glyf"]["uni0106"]
+    italic_glyph = by_name[italic.name]["glyf"]["uni0106"]
+
+    assert roman_glyph.isComposite()
+    assert italic_glyph.isComposite()
+    assert roman_glyph.components[1].x != italic_glyph.components[1].x
+
+    repaired_profiles = {(x["font"], x["profile"]) for x in result["repaired"] if x["char"] == "Ć"}
+    assert (roman.name, "roman") in repaired_profiles
+    assert (italic.name, "italic") in repaired_profiles

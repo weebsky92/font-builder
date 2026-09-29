@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.0-alpha.11.2 - 2026-09-29
+
+### Changed
+- Glyph Lab corrections are split into independent Roman and Italic profiles
+- Roman edits propagate only across Roman weights
+- Italic edits propagate only across Italic weights
+- Glyph Lab preview can explicitly target Roman or Italic masters
+
+### Added
+- Roman / Italic switch in Glyph Lab
+- regression test proving different geometry deltas are preserved between Roman and Italic repairs
+- audit metadata describing which geometry profiles are available
+
+### Fixed
+- Character Map hides Show more when the complete filtered result is already visible
+- inactive Font Tools navigation labels have better contrast
+
 ## 0.1.0-alpha.11.1 - 2026-09-28
 
 ### Fixed

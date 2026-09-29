@@ -199,11 +199,13 @@ def _default_recipe(font: TTFont, char: str) -> dict[str, Any]:
     }
 
 
-def _recipe_with_reference(font: TTFont, char: str) -> dict[str, Any]:
+def _recipe_with_reference(font: TTFont, char: str, profile: str | None = None) -> dict[str, Any]:
     auto = _default_recipe(font, char)
     recipe = dict(auto)
     recipe["_reference_auto"] = dict(auto)
     recipe["_reference_upm"] = float(font["head"].unitsPerEm)
+    if profile in {"roman", "italic"}:
+        recipe["profile"] = profile
     return recipe
 
 
@@ -258,6 +260,10 @@ def audit_paths(paths: list[Path]) -> dict[str, Any]:
 
     for family_name, sources in groups.items():
         fonts = [(source, TTFont(source.path, lazy=False)) for source in sources]
+        profile_fonts = {
+            "roman": [item for item in fonts if not item[0].italic],
+            "italic": [item for item in fonts if item[0].italic],
+        }
         chars = []
 
         for char, spec in POLISH_SPECS.items():
@@ -295,20 +301,34 @@ def audit_paths(paths: list[Path]) -> dict[str, Any]:
             else:
                 status = "partial"
 
-            preview_font = min(
-                fonts,
-                key=lambda item: (item[0].italic, abs(item[0].weight - 400)),
-            )[1]
-            try:
-                suggested = _recipe_with_reference(preview_font, char)
-            except Exception as exc:
-                suggested = {
+            suggested_recipes: dict[str, dict[str, Any]] = {}
+            for profile, candidates in profile_fonts.items():
+                if not candidates:
+                    continue
+                preview_font = min(candidates, key=lambda item: abs(item[0].weight - 400))[1]
+                try:
+                    suggested_recipes[profile] = _recipe_with_reference(preview_font, char, profile)
+                except Exception as exc:
+                    suggested_recipes[profile] = {
+                        "char": char,
+                        "base": spec["base"],
+                        "kind": spec["kind"],
+                        "profile": profile,
+                        "repairable": False,
+                        "reason": f"audit-error:{exc}",
+                    }
+
+            suggested = (
+                suggested_recipes.get("roman")
+                or suggested_recipes.get("italic")
+                or {
                     "char": char,
                     "base": spec["base"],
                     "kind": spec["kind"],
                     "repairable": False,
-                    "reason": f"audit-error:{exc}",
+                    "reason": "no-profile-master",
                 }
+            )
 
             chars.append({
                 "char": char,
@@ -321,6 +341,7 @@ def audit_paths(paths: list[Path]) -> dict[str, Any]:
                 "missing": missing,
                 "repairable": repairable if status != "present" else True,
                 "suggested_recipe": suggested,
+                "suggested_recipes": suggested_recipes,
             })
 
         missing_count = sum(1 for item in chars if item["status"] != "present")
@@ -333,13 +354,22 @@ def audit_paths(paths: list[Path]) -> dict[str, Any]:
             "repair_supported": repair_supported,
             "missing_count": missing_count,
             "complete": missing_count == 0,
+            "profiles": {
+                "roman": bool(profile_fonts["roman"]),
+                "italic": bool(profile_fonts["italic"]),
+            },
             "chars": chars,
         })
 
     return {"families": families}
 
 
-def preview_path(paths: list[Path], char: str, recipe: dict[str, Any] | None = None) -> dict[str, Any]:
+def preview_path(
+    paths: list[Path],
+    char: str,
+    recipe: dict[str, Any] | None = None,
+    profile: str = "roman",
+) -> dict[str, Any]:
     if char not in POLISH_SPECS:
         raise ValueError(f"Unsupported Glyph Lab character: {char}")
 
@@ -348,14 +378,22 @@ def preview_path(paths: list[Path], char: str, recipe: dict[str, Any] | None = N
         raise ValueError("No font families found")
 
     family_name, sources = next(iter(groups.items()))
-    source = min(sources, key=lambda s: (s.italic, abs(s.weight - 400)))
+    if profile not in {"roman", "italic"}:
+        raise ValueError(f"Unknown Glyph Lab profile: {profile}")
+
+    want_italic = profile == "italic"
+    candidates = [source for source in sources if bool(source.italic) == want_italic]
+    if not candidates:
+        raise ValueError(f"No {profile} master is available for this family")
+
+    source = min(candidates, key=lambda s: abs(s.weight - 400))
     font = TTFont(source.path, lazy=False)
     spec = POLISH_SPECS[char]
     base_name = _glyph_for_char(font, spec["base"])
     if not base_name:
         raise ValueError(f"Missing base glyph {spec['base']} in preview master")
 
-    default_recipe = _recipe_with_reference(font, char)
+    default_recipe = _recipe_with_reference(font, char, profile)
     active_recipe = {**default_recipe, **(recipe or {})}
     mark_name = None if spec["kind"] == "stroke" else _find_mark(font, spec["kind"])
 
@@ -367,6 +405,7 @@ def preview_path(paths: list[Path], char: str, recipe: dict[str, Any] | None = N
     return {
         "family": family_name,
         "char": char,
+        "profile": profile,
         "source": _source_payload(source),
         "upm": font["head"].unitsPerEm,
         "advance": advance,
@@ -595,7 +634,19 @@ def _add_cff_glyph(font: TTFont, glyph_name: str, base_name: str, recipe: dict[s
 
 def repair_paths(paths: list[Path], output_dir: Path, recipes: list[dict[str, Any]]) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
-    recipe_map = {item["char"]: item for item in recipes if item.get("char") in POLISH_SPECS}
+    recipe_map: dict[tuple[str, str], dict[str, Any]] = {}
+    recipe_chars: list[str] = []
+    for item in recipes:
+        char = item.get("char")
+        if char not in POLISH_SPECS:
+            continue
+        profile = str(item.get("profile") or "legacy").lower()
+        if profile not in {"roman", "italic", "legacy"}:
+            raise ValueError(f"Unknown Glyph Lab recipe profile: {profile}")
+        recipe_map[(char, profile)] = item
+        if char not in recipe_chars:
+            recipe_chars.append(char)
+
     if not recipe_map:
         raise ValueError("No Glyph Lab recipes supplied")
 
@@ -619,10 +670,22 @@ def repair_paths(paths: list[Path], output_dir: Path, recipes: list[dict[str, An
             order = list(font.getGlyphOrder())
             cmap = _best_cmap(font)
 
-            for char, recipe in recipe_map.items():
+            source_profile = "italic" if source.italic else "roman"
+
+            for char in recipe_chars:
                 spec = POLISH_SPECS[char]
-                if ord(char) in cmap and not recipe.get("force", False):
+                recipe = (
+                    recipe_map.get((char, source_profile))
+                    or recipe_map.get((char, "legacy"))
+                )
+
+                if ord(char) in cmap and not (recipe and recipe.get("force", False)):
                     continue
+
+                if recipe is None:
+                    raise ValueError(
+                        f"{source.path.name}: missing {source_profile} Glyph Lab recipe for {char}"
+                    )
 
                 base_name = _glyph_for_char(font, spec["base"])
                 if not base_name:
@@ -657,6 +720,7 @@ def repair_paths(paths: list[Path], output_dir: Path, recipes: list[dict[str, An
                     "font": source.path.name,
                     "char": char,
                     "glyph": glyph_name,
+                    "profile": source_profile,
                 })
 
             font.setGlyphOrder(order)

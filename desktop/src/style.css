@@ -1821,3 +1821,51 @@ button:disabled {
   color: #777783;
   font-size: 9px;
 }
+
+
+.glyph-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.glyph-profile-switch {
+  display: inline-flex;
+  padding: 3px;
+  gap: 3px;
+  border: 1px solid #302b39;
+  border-radius: 10px;
+  background: #121116;
+}
+
+.glyph-profile-btn {
+  min-width: 66px;
+  min-height: 30px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #777482;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .07em;
+}
+
+.glyph-profile-btn.active {
+  background: rgba(157,131,255,.18);
+  color: #f2edff;
+  box-shadow: inset 0 0 0 1px rgba(157,131,255,.38);
+}
+
+.glyph-profile-btn:disabled {
+  opacity: .28;
+  cursor: not-allowed;
+}
+
+.tool-nav-btn:not(.active) strong {
+  color: #918d9b;
+}
+
+.tool-more.hidden {
+  display: none !important;
+}

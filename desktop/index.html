@@ -10,7 +10,7 @@
     <header class="topbar">
       <div>
         <p class="eyebrow" data-i18n="eyebrow">LOKALNE NARZĘDZIE DO FONTÓW</p>
-        <h1>Font Builder <span>α11.1</span></h1>
+        <h1>Font Builder <span>α11.2</span></h1>
       </div>
 
       <div class="top-actions">
@@ -308,7 +308,13 @@
                   <small id="glyph-source-label">—</small>
                 </div>
               </div>
-              <button id="glyph-reset" class="secondary mini-btn" data-i18n="glyph.reset">RESET AUTO</button>
+              <div class="glyph-preview-actions">
+                <div class="glyph-profile-switch" aria-label="Glyph profile">
+                  <button class="glyph-profile-btn active" data-glyph-profile="roman" data-i18n="glyph.roman">ROMAN</button>
+                  <button class="glyph-profile-btn" data-glyph-profile="italic" data-i18n="glyph.italic">ITALIC</button>
+                </div>
+                <button id="glyph-reset" class="secondary mini-btn" data-i18n="glyph.reset">RESET AUTO</button>
+              </div>
             </div>
 
             <div id="glyph-canvas" class="glyph-canvas"></div>

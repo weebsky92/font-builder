@@ -16,6 +16,7 @@ const state = {
   glyphAudit: null,
   glyphPreview: null,
   glyphSelected: null,
+  glyphProfile: 'roman',
   glyphRecipes: {},
   repairedOutputs: [],
   repairedZip: null,
@@ -453,6 +454,7 @@ function resetAll() {
   state.glyphAudit = null;
   state.glyphPreview = null;
   state.glyphSelected = null;
+  state.glyphProfile = 'roman';
   state.glyphRecipes = {};
   state.repairedOutputs = [];
   state.repairedZip = null;
@@ -1004,6 +1006,39 @@ function glyphItem(char) {
   return glyphFamily()?.chars?.find(item => item.char === char) || null;
 }
 
+function glyphProfileAvailable(profile) {
+  const family = glyphFamily();
+  if (!family) return false;
+  if (family.profiles && typeof family.profiles[profile] === 'boolean') {
+    return family.profiles[profile];
+  }
+  const fonts = analysisData()?.fonts || [];
+  return profile === 'italic' ? fonts.some(font => font.italic) : fonts.some(font => !font.italic);
+}
+
+function glyphRecipeKey(char, profile = state.glyphProfile) {
+  return char + '|' + profile;
+}
+
+function activeGlyphRecipe(char = state.glyphSelected, profile = state.glyphProfile) {
+  return state.glyphRecipes[glyphRecipeKey(char, profile)] || null;
+}
+
+function suggestedGlyphRecipe(item, profile = state.glyphProfile) {
+  if (!item) return null;
+  return item.suggested_recipes?.[profile]
+    || (profile === 'roman' ? item.suggested_recipe : null)
+    || null;
+}
+
+function renderGlyphProfileSwitch() {
+  document.querySelectorAll('[data-glyph-profile]').forEach(button => {
+    const profile = button.dataset.glyphProfile;
+    button.classList.toggle('active', profile === state.glyphProfile);
+    button.disabled = !glyphProfileAvailable(profile);
+  });
+}
+
 function glyphStatusText(item) {
   if (!item) return '—';
   if (item.status === 'present') return t('glyph.present');
@@ -1019,7 +1054,7 @@ function renderGlyphGrid() {
 
   $('glyph-grid').innerHTML = family.chars.map(item => {
     const selected = item.char === state.glyphSelected ? 'selected' : '';
-    const queued = state.glyphRecipes[item.char] ? 'queued' : '';
+    const queued = activeGlyphRecipe(item.char) ? 'queued' : '';
     return `
       <button class="glyph-cell ${item.status} ${selected} ${queued}" data-glyph-char="${esc(item.char)}">
         <span>${esc(item.char)}</span>
@@ -1128,7 +1163,7 @@ function renderGlyphCanvas() {
     return;
   }
 
-  const recipe = state.glyphRecipes[state.glyphSelected] || preview.recipe || {};
+  const recipe = activeGlyphRecipe() || preview.recipe || {};
   const width = Math.max(Number(preview.advance || 1000), Number(preview.upm || 1000)) + 220;
   const ascent = Number(preview.ascent || 800);
   const descent = Number(preview.descent || -200);
@@ -1177,7 +1212,7 @@ function setRange(id, value, min, max, step = 1) {
 }
 
 function updateGlyphControlLabels() {
-  const recipe = state.glyphRecipes[state.glyphSelected] || {};
+  const recipe = activeGlyphRecipe() || {};
   $('glyph-x-value').textContent = Math.round(Number(recipe.dx || 0));
   $('glyph-y-value').textContent = Math.round(Number(recipe.dy || 0));
   $('glyph-scale-value').textContent = Number(recipe.scale || 1).toFixed(2);
@@ -1196,7 +1231,7 @@ function renderGlyphControls() {
   $('glyph-status-label').textContent = glyphStatusText(item);
   $('glyph-source-label').textContent = recipeSourceLabel(preview);
 
-  const recipe = state.glyphRecipes[item.char] || preview.recipe || {};
+  const recipe = activeGlyphRecipe(item.char) || preview.recipe || {};
   const upm = Number(preview.upm || 1000);
 
   setRange('glyph-x', recipe.dx || 0, -upm, upm, 1);
@@ -1222,13 +1257,14 @@ function renderGlyphControls() {
 
   $('glyph-recipe-status').textContent = !item.repairable
     ? t('glyph.notRepairable')
-    : (state.glyphRecipes[item.char]?._edited ? t('glyph.recipeSaved') : '');
+    : (activeGlyphRecipe(item.char)?._edited ? t('glyph.recipeSaved') : '');
 
   updateGlyphControlLabels();
   renderGlyphCanvas();
 }
 
 function renderGlyphLab() {
+  renderGlyphProfileSwitch();
   renderGlyphGrid();
   renderGlyphControls();
 }
@@ -1239,16 +1275,17 @@ async function selectGlyph(char) {
 
   showOverlay('loading.glyphPreview');
   try {
-    const current = state.glyphRecipes[char];
-    const args = ['glyph-preview', '--char', char];
+    const key = glyphRecipeKey(char);
+    const current = state.glyphRecipes[key];
+    const args = ['glyph-preview', '--char', char, '--profile', state.glyphProfile];
     if (current) args.push('--recipe-json', JSON.stringify(current));
     args.push(...state.paths);
 
     const response = await invoke('run_engine', { args });
     state.glyphPreview = response.preview;
 
-    if (!state.glyphRecipes[char]) {
-      state.glyphRecipes[char] = { ...(response.preview?.recipe || {}) };
+    if (!state.glyphRecipes[key]) {
+      state.glyphRecipes[key] = { ...(response.preview?.recipe || {}) };
     }
 
     renderGlyphLab();
@@ -1266,6 +1303,7 @@ async function openGlyphLab() {
   $('glyph-modal').classList.remove('hidden');
   $('glyph-modal').setAttribute('aria-hidden', 'false');
 
+  state.glyphProfile = glyphProfileAvailable('roman') ? 'roman' : 'italic';
   const first = family.chars.find(item => item.status !== 'present') || family.chars[0];
   if (first) await selectGlyph(first.char);
 }
@@ -1277,9 +1315,10 @@ function closeGlyphLab() {
 
 function updateRecipeFromControls() {
   const char = state.glyphSelected;
-  if (!char || !state.glyphRecipes[char]) return;
+  const key = glyphRecipeKey(char);
+  if (!char || !state.glyphRecipes[key]) return;
 
-  const recipe = state.glyphRecipes[char];
+  const recipe = state.glyphRecipes[key];
   recipe.dx = Number($('glyph-x').value);
   recipe.dy = Number($('glyph-y').value);
   recipe.scale = Number($('glyph-scale').value);
@@ -1294,7 +1333,7 @@ function updateRecipeFromControls() {
   }
 
   recipe._edited = true;
-  state.glyphRecipes[char] = recipe;
+  state.glyphRecipes[key] = recipe;
   updateGlyphControlLabels();
   renderGlyphCanvas();
   renderGlyphGrid();
@@ -1304,8 +1343,9 @@ async function resetGlyphAuto() {
   const item = glyphItem(state.glyphSelected);
   if (!item) return;
 
-  state.glyphRecipes[item.char] = { ...(item.suggested_recipe || {}) };
-  state.glyphRecipes[item.char]._edited = false;
+  const key = glyphRecipeKey(item.char);
+  state.glyphRecipes[key] = { ...(suggestedGlyphRecipe(item) || {}) };
+  state.glyphRecipes[key]._edited = false;
   await selectGlyph(item.char);
   $('glyph-recipe-status').textContent = t('glyph.autoLoaded');
 }
@@ -1315,8 +1355,13 @@ function autoAllGlyphs() {
   if (!family) return;
 
   family.chars.forEach(item => {
-    if (item.status !== 'present' && item.repairable && item.suggested_recipe) {
-      state.glyphRecipes[item.char] = { ...item.suggested_recipe };
+    if (item.status === 'present' || !item.repairable) return;
+    for (const profile of ['roman', 'italic']) {
+      if (!glyphProfileAvailable(profile)) continue;
+      const suggested = suggestedGlyphRecipe(item, profile);
+      if (suggested) {
+        state.glyphRecipes[glyphRecipeKey(item.char, profile)] = { ...suggested };
+      }
     }
   });
 
@@ -1325,8 +1370,9 @@ function autoAllGlyphs() {
 
 function saveGlyphRecipe() {
   const char = state.glyphSelected;
-  if (!char || !state.glyphRecipes[char]) return;
-  state.glyphRecipes[char]._edited = true;
+  const key = glyphRecipeKey(char);
+  if (!char || !state.glyphRecipes[key]) return;
+  state.glyphRecipes[key]._edited = true;
   $('glyph-recipe-status').textContent = t('glyph.recipeSaved');
   renderGlyphGrid();
 }
@@ -1342,12 +1388,17 @@ async function repairGlyphs() {
     return;
   }
 
-  const recipes = missing.map(item => {
-    const recipe = state.glyphRecipes[item.char] || item.suggested_recipe;
-    const clean = { ...(recipe || {}) };
-    delete clean._edited;
-    return clean;
-  });
+  const recipes = [];
+  for (const item of missing) {
+    for (const profile of ['roman', 'italic']) {
+      if (!glyphProfileAvailable(profile)) continue;
+      const recipe = activeGlyphRecipe(item.char, profile) || suggestedGlyphRecipe(item, profile);
+      if (!recipe) continue;
+      const clean = { ...recipe, profile };
+      delete clean._edited;
+      recipes.push(clean);
+    }
+  }
 
   showOverlay('loading.glyphRepair');
 
@@ -1458,6 +1509,15 @@ $('glyph-auto-all').addEventListener('click', autoAllGlyphs);
 $('glyph-reset').addEventListener('click', resetGlyphAuto);
 $('glyph-save-recipe').addEventListener('click', saveGlyphRecipe);
 $('glyph-repair').addEventListener('click', repairGlyphs);
+document.querySelectorAll('[data-glyph-profile]').forEach(button => {
+  button.addEventListener('click', async () => {
+    const profile = button.dataset.glyphProfile;
+    if (!glyphProfileAvailable(profile) || profile === state.glyphProfile) return;
+    state.glyphProfile = profile;
+    if (state.glyphSelected) await selectGlyph(state.glyphSelected);
+    else renderGlyphLab();
+  });
+});
 
 ['glyph-x','glyph-y','glyph-scale','glyph-rotation','glyph-thickness','glyph-width','glyph-height']
   .forEach(id => $(id).addEventListener('input', updateRecipeFromControls));

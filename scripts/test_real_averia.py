@@ -41,7 +41,16 @@ with tempfile.TemporaryDirectory(prefix="averia-real-") as td:
     try:
         family_audit = audit["families"][0]
         missing = [item for item in family_audit["chars"] if item["status"] != "present"]
-        recipes = [item["suggested_recipe"] for item in missing]
+        recipes = []
+        for item in missing:
+            suggested = item.get("suggested_recipes") or {}
+            if suggested:
+                for profile in ("roman", "italic"):
+                    recipe = suggested.get(profile)
+                    if recipe:
+                        recipes.append(recipe)
+            elif item.get("suggested_recipe"):
+                recipes.append(item["suggested_recipe"])
         repair_dir = root / "repair"
         repaired = repair_paths(paths, repair_dir, recipes)
         assert repaired["variant_count"] == len(FILES), repaired
@@ -50,7 +59,12 @@ with tempfile.TemporaryDirectory(prefix="averia-real-") as td:
 
         repaired_audit = audit_paths([Path(path) for path in repaired["outputs"]])
         assert repaired_audit["families"][0]["complete"] is True, repaired_audit
-        print("REPAIR_OK", repaired["variant_count"], "variants", repaired["zip"])
+        repaired_profiles = {item.get("profile") for item in repaired["repaired"]}
+        if family_audit.get("profiles", {}).get("roman"):
+            assert "roman" in repaired_profiles, repaired
+        if family_audit.get("profiles", {}).get("italic"):
+            assert "italic" in repaired_profiles, repaired
+        print("REPAIR_OK", repaired["variant_count"], "variants", repaired["zip"], sorted(repaired_profiles))
     except Exception:
         print("REPAIR_FAIL")
         traceback.print_exc()

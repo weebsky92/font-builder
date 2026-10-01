@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.0-alpha.11.3 - 2026-10-01
+
+### Added
+- direct drag positioning of Glyph Lab marks in the SVG preview
+- live synchronization between drag position and X / Y sliders
+- Shift + drag axis constraint
+- grab / grabbing cursor states and subtle hover feedback
+
+### Preserved
+- sliders remain available for precise positioning
+- Reset AUTO behavior
+- independent Roman / Italic recipes
+- family-wide normalized recipe propagation
+
+### QA
+- desktop build/CI verifies the updated frontend compiles on Windows and macOS
+- existing Roman / Italic and real Averia regressions remain enabled
+
 ## 0.1.0-alpha.11.2 - 2026-09-29
 
 ### Changed

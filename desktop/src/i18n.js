@@ -186,7 +186,7 @@ export const translations = {
     "glyph.roman": "ROMAN",
     "glyph.italic": "ITALIC",
     "glyph.adjust": "Dopasowanie",
-    "glyph.adjustHelp": "Pozycja i kształt są zapisywane jako recepta dla brakującego znaku.",
+    "glyph.adjustHelp": "Przeciągnij fioletowy element na podglądzie albo użyj suwaków. Shift blokuje ruch do jednej osi.",
     "glyph.scale": "Skala",
     "glyph.rotation": "Obrót",
     "glyph.thickness": "Grubość kreski",

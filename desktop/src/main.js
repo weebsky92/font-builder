@@ -1136,6 +1136,130 @@ function geometryPath(kind, recipe, upm) {
   return 'M' + pts.map(([px, py]) => px.toFixed(2) + ' ' + py.toFixed(2)).join(' L') + ' Z';
 }
 
+
+function clampNumber(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function glyphPointerToFont(svg, clientX, clientY) {
+  const matrix = svg?.getScreenCTM?.();
+  if (!matrix) return null;
+
+  const point = svg.createSVGPoint();
+  point.x = clientX;
+  point.y = clientY;
+  const local = point.matrixTransform(matrix.inverse());
+
+  // Glyph artwork is inside scale(1 -1), so UI Y must be converted back
+  // to the font coordinate system before updating recipe dy.
+  return { x: local.x, y: -local.y };
+}
+
+function syncGlyphPositionControls(recipe) {
+  const x = $('glyph-x');
+  const y = $('glyph-y');
+
+  if (x) x.value = String(Number(recipe.dx || 0));
+  if (y) y.value = String(Number(recipe.dy || 0));
+
+  updateGlyphControlLabels();
+}
+
+function updateDraggedGlyphVisual(element, recipe) {
+  const kind = element?.dataset?.glyphDragKind;
+  if (!kind) return;
+
+  if (kind === 'stroke') {
+    element.setAttribute('d', strokePath(recipe));
+    return;
+  }
+
+  if (kind === 'geometry') {
+    element.setAttribute(
+      'd',
+      geometryPath(recipe.kind, recipe, Number(state.glyphPreview?.upm || 1000))
+    );
+    return;
+  }
+
+  if (kind === 'component') {
+    const dx = Number(recipe.dx || 0);
+    const dy = Number(recipe.dy || 0);
+    const scale = Number(recipe.scale || 1);
+    const rotation = Number(recipe.rotation || 0);
+    element.setAttribute(
+      'transform',
+      `translate(${dx} ${dy}) rotate(${rotation}) scale(${scale})`
+    );
+  }
+}
+
+function bindGlyphDrag() {
+  const canvas = $('glyph-canvas');
+  const svg = canvas?.querySelector('svg');
+  const handle = canvas?.querySelector('[data-glyph-drag]');
+  const item = glyphItem(state.glyphSelected);
+  const recipe = activeGlyphRecipe();
+
+  if (!svg || !handle || !item || !recipe || item.status === 'present' || !item.repairable) {
+    return;
+  }
+
+  handle.addEventListener('pointerdown', event => {
+    if (event.button !== 0) return;
+
+    const start = glyphPointerToFont(svg, event.clientX, event.clientY);
+    if (!start) return;
+
+    const key = glyphRecipeKey(state.glyphSelected);
+    const startDx = Number(recipe.dx || 0);
+    const startDy = Number(recipe.dy || 0);
+    const xMin = Number($('glyph-x')?.min || -Infinity);
+    const xMax = Number($('glyph-x')?.max || Infinity);
+    const yMin = Number($('glyph-y')?.min || -Infinity);
+    const yMax = Number($('glyph-y')?.max || Infinity);
+
+    event.preventDefault();
+    handle.classList.add('dragging');
+    handle.setPointerCapture?.(event.pointerId);
+
+    const move = moveEvent => {
+      const current = glyphPointerToFont(svg, moveEvent.clientX, moveEvent.clientY);
+      if (!current) return;
+
+      let deltaX = current.x - start.x;
+      let deltaY = current.y - start.y;
+
+      // Shift constrains movement to the dominant axis for quick alignment.
+      if (moveEvent.shiftKey) {
+        if (Math.abs(deltaX) >= Math.abs(deltaY)) deltaY = 0;
+        else deltaX = 0;
+      }
+
+      recipe.dx = clampNumber(startDx + deltaX, xMin, xMax);
+      recipe.dy = clampNumber(startDy + deltaY, yMin, yMax);
+      recipe._edited = true;
+      state.glyphRecipes[key] = recipe;
+
+      syncGlyphPositionControls(recipe);
+      updateDraggedGlyphVisual(handle, recipe);
+      $('glyph-recipe-status').textContent = t('glyph.recipeSaved');
+    };
+
+    const finish = () => {
+      handle.classList.remove('dragging');
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', finish);
+      handle.removeEventListener('pointercancel', finish);
+      renderGlyphGrid();
+    };
+
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', finish);
+    handle.addEventListener('pointercancel', finish);
+  });
+}
+
 function strokePath(recipe) {
   const x = Number(recipe.stroke_x || 0) + Number(recipe.dx || 0);
   const y = Number(recipe.stroke_y || 0) + Number(recipe.dy || 0);
@@ -1174,16 +1298,16 @@ function renderGlyphCanvas() {
   if (item.status === 'present' && preview.existing_path) {
     mark = `<path class="glyph-existing" d="${esc(preview.existing_path)}"></path>`;
   } else if (recipe.kind === 'stroke') {
-    mark = `<path class="glyph-mark" d="${strokePath(recipe)}"></path>`;
+    mark = `<path class="glyph-mark glyph-draggable" data-glyph-drag data-glyph-drag-kind="stroke" d="${strokePath(recipe)}"></path>`;
   } else if (recipe.geometry) {
-    mark = `<path class="glyph-mark" d="${geometryPath(recipe.kind, recipe, Number(preview.upm || 1000))}"></path>`;
+    mark = `<path class="glyph-mark glyph-draggable" data-glyph-drag data-glyph-drag-kind="geometry" d="${geometryPath(recipe.kind, recipe, Number(preview.upm || 1000))}"></path>`;
   } else if (preview.mark_path) {
     const dx = Number(recipe.dx || 0);
     const dy = Number(recipe.dy || 0);
     const scale = Number(recipe.scale || 1);
     const rotation = Number(recipe.rotation || 0);
     mark = `
-      <g transform="translate(${dx} ${dy}) rotate(${rotation}) scale(${scale})">
+      <g class="glyph-draggable" data-glyph-drag data-glyph-drag-kind="component" transform="translate(${dx} ${dy}) rotate(${rotation}) scale(${scale})">
         <path class="glyph-mark" d="${esc(preview.mark_path)}"></path>
       </g>
     `;
@@ -1201,6 +1325,8 @@ function renderGlyphCanvas() {
       </g>
     </svg>
   `;
+
+  bindGlyphDrag();
 }
 
 function setRange(id, value, min, max, step = 1) {

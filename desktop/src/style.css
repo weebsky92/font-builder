@@ -1869,3 +1869,24 @@ button:disabled {
 .tool-more.hidden {
   display: none !important;
 }
+
+
+.glyph-draggable {
+  cursor: grab;
+  touch-action: none;
+  pointer-events: all;
+  transition: filter .14s ease, opacity .14s ease;
+}
+
+.glyph-draggable:hover {
+  filter: drop-shadow(0 0 10px rgba(157, 131, 255, .42));
+}
+
+.glyph-draggable.dragging {
+  cursor: grabbing;
+  filter: drop-shadow(0 0 14px rgba(157, 131, 255, .62));
+}
+
+.glyph-canvas svg {
+  user-select: none;
+}

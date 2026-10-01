@@ -1,6 +1,6 @@
 # Font Builder - Project
 
-Version: `0.1.0-alpha.11.2`
+Version: `0.1.0-alpha.11.3`
 License: MIT
 Repository: `weebsky92/font-builder`
 
@@ -230,6 +230,27 @@ Additional polish:
 
 ### Packaging note for Alpha 11.2
 The public release is `0.1.0-alpha.11.2`. Windows MSI uses the numeric internal bundle version `0.1.0-112`.
+
+## Alpha 11.3 direct manipulation in Glyph Lab
+
+Glyph placement can now be adjusted in two equivalent ways:
+- drag the purple mark directly in the SVG preview,
+- use the existing X / Y sliders for precise adjustment.
+
+Both controls edit the same `dx` / `dy` recipe values, so there is only one source of truth for placement.
+
+Interaction:
+- pointer drag updates X / Y live,
+- sliders follow the dragged position,
+- Shift + drag constrains movement to the dominant axis,
+- hover uses a subtle highlight,
+- pointer cursor changes between grab / grabbing,
+- Reset AUTO continues to restore the profile-specific automatic placement.
+
+Roman and Italic remain fully independent because drag edits the currently active profile recipe only.
+
+### Packaging note for Alpha 11.3
+The public release is `0.1.0-alpha.11.3`. Windows MSI uses the numeric internal bundle version `0.1.0-113`.
 
 ## Next checkpoint
 

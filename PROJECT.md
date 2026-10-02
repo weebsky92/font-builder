@@ -1,6 +1,6 @@
-# Font Builder - Project
+# vvFont - Project
 
-Version: `0.1.0-alpha.11.3`
+Version: `0.1.0-alpha.12`
 License: MIT
 Repository: `weebsky92/font-builder`
 
@@ -252,9 +252,41 @@ Roman and Italic remain fully independent because drag edits the currently activ
 ### Packaging note for Alpha 11.3
 The public release is `0.1.0-alpha.11.3`. Windows MSI uses the numeric internal bundle version `0.1.0-113`.
 
+## Alpha 12 vvFont UX polish
+
+Branding:
+- product name is now `vvFont`
+- `vv` is the ecosystem marker derived from WEEBSKY and designed to visually read as a compact W-like monogram
+- desktop title and product bundle use vvFont naming
+- repository name remains unchanged for compatibility during alpha
+
+Appearance:
+- Auto / Dark / Light theme modes
+- Auto follows the operating system color scheme live
+- theme choice is persisted locally
+- light mode uses a dedicated surface/text/border token set instead of simple color inversion
+- typography and secondary metadata sizes were increased for desktop readability
+- surfaces, radii, spacing and shadows were unified across the main flow, Font Tools and Glyph Lab
+
+Language:
+- PL / EN remain fully independent translation dictionaries
+- language selector is now a compact dropdown with country flag and locale code
+- Polish UI uses Polish labels for user-facing Font Tools sections where natural
+- language choice remains persisted locally
+
+Desktop feel:
+- new branded header and vv monogram
+- navigation stepper behaves as a contained process rail
+- Font Tools and Glyph Lab use the same surface system as the main workflow
+- loading overlay has hierarchy and local-processing context
+- export cards and metadata are more readable
+
+### Packaging note for Alpha 12
+The public release is `0.1.0-alpha.12`. Windows MSI uses numeric internal bundle version `0.1.0-120`.
+
 ## Next checkpoint
 
-`0.1.0-alpha.12`
+`0.1.0-alpha.12.1`
 
 Primary:
 - Windows runtime QA of Font Tools,

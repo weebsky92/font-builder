@@ -29,6 +29,7 @@ const state = {
   fontToolsCharmapLimit: 800,
   fontToolsConversion: null,
   lang: savedLang || detectedLang,
+  theme: localStorage.getItem('vvfont.theme') || 'auto',
   settings: {
     close_to_tray: false,
     launch_at_startup: false,
@@ -69,6 +70,26 @@ function modeLabel(mode) {
   return t('analysis.unsupported');
 }
 
+
+const systemTheme = window.matchMedia('(prefers-color-scheme: light)');
+
+function resolvedTheme(choice = state.theme) {
+  return choice === 'auto' ? (systemTheme.matches ? 'light' : 'dark') : choice;
+}
+
+function setTheme(choice) {
+  if (!['auto','dark','light'].includes(choice)) choice = 'auto';
+  state.theme = choice;
+  localStorage.setItem('vvfont.theme', choice);
+  document.documentElement.dataset.theme = resolvedTheme(choice);
+  document.documentElement.dataset.themeChoice = choice;
+  if ($('theme-select')) $('theme-select').value = choice;
+}
+
+function refreshAutoTheme() {
+  if (state.theme === 'auto') setTheme('auto');
+}
+
 function setLanguage(lang) {
   if (!translations[lang]) return;
   state.lang = lang;
@@ -83,9 +104,7 @@ function setLanguage(lang) {
     el.placeholder = t(el.dataset.i18nPlaceholder);
   });
 
-  document.querySelectorAll('.lang-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.lang === lang);
-  });
+  if ($('lang-select')) $('lang-select').value = lang;
 
   render();
   if (!$('glyph-modal').classList.contains('hidden')) renderGlyphLab();
@@ -93,7 +112,7 @@ function setLanguage(lang) {
 }
 
 function showOverlay(key) {
-  $('overlay-text').textContent = t(key);
+  $('overlay-text').innerHTML = '<span class="overlay-kicker">' + esc(t('loading.working')) + '</span><strong>' + esc(t(key)) + '</strong><small>' + esc(t('loading.local')) + '</small>';
   $('overlay').classList.remove('hidden');
 }
 
@@ -1648,9 +1667,9 @@ document.querySelectorAll('[data-glyph-profile]').forEach(button => {
 ['glyph-x','glyph-y','glyph-scale','glyph-rotation','glyph-thickness','glyph-width','glyph-height']
   .forEach(id => $(id).addEventListener('input', updateRecipeFromControls));
 
-document.querySelectorAll('.lang-btn').forEach(button => {
-  button.addEventListener('click', () => setLanguage(button.dataset.lang));
-});
+$('lang-select')?.addEventListener('change', event => setLanguage(event.target.value));
+$('theme-select')?.addEventListener('change', event => setTheme(event.target.value));
+systemTheme.addEventListener?.('change', refreshAutoTheme);
 
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') {
@@ -1676,12 +1695,14 @@ webview.onDragDropEvent(event => {
 
 async function init() {
   await loadSettings();
+  setTheme(state.theme);
   setLanguage(state.lang);
   render();
 }
 
 init().catch(error => {
   console.error('App initialization failed', error);
+  setTheme(state.theme);
   setLanguage(state.lang);
   render();
 });

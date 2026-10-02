@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.1.0-alpha.12 - 2026-10-02
+
+### Branding
+- Font Builder is now vvFont
+- added vv/W ecosystem monogram and "by WEEBSKY" lockup
+- desktop product title updated to vvFont Alpha
+
+### Added
+- Auto / Dark / Light appearance modes
+- live operating-system theme detection in Auto mode
+- compact language dropdown with PL / EN locale markers
+- persisted appearance preference
+
+### UX polish
+- larger readable secondary typography
+- unified app surfaces, borders, radii, shadows and spacing
+- refined process rail
+- stronger Font Tools / Glyph Lab workspace treatment
+- improved loading overlay hierarchy
+- clearer export cards
+- dedicated light-theme token set
+
+### Localization
+- Polish-facing Font Tools labels are localized where natural
+- PL and EN remain separate translation dictionaries
+
 ## 0.1.0-alpha.11.3 - 2026-10-01
 
 ### Added

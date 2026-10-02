@@ -1,7 +1,7 @@
 [package]
-name = "font-builder-desktop-alpha"
-version = "0.1.0-113"
-description = "Cross-platform local font builder shell"
+name = "vvfont-desktop-alpha"
+version = "0.1.0-120"
+description = "vvFont cross-platform local typography toolkit"
 edition = "2021"
 
 [lib]

@@ -3,21 +3,36 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Font Builder</title>
+  <title>vvFont by WEEBSKY</title>
 </head>
 <body>
   <main class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow" data-i18n="eyebrow">LOKALNE NARZĘDZIE DO FONTÓW</p>
-        <h1>Font Builder <span>α11.3</span></h1>
+        <div class="brand-lockup">
+          <div class="brand-mark" aria-hidden="true"><span>v</span><span>v</span></div>
+          <div>
+            <p class="eyebrow" data-i18n="eyebrow">LOKALNE NARZĘDZIE DO FONTÓW</p>
+            <h1>vvFont <span>α12</span></h1>
+            <small class="brand-by">by WEEBSKY</small>
+          </div>
+        </div>
       </div>
 
       <div class="top-actions">
-        <div class="lang-switch" aria-label="Language">
-          <button class="lang-btn" data-lang="pl">PL</button>
-          <button class="lang-btn" data-lang="en">EN</button>
-        </div>
+        <label class="top-select-wrap" aria-label="Language">
+          <select id="lang-select" class="top-select">
+            <option value="pl">🇵🇱 PL</option>
+            <option value="en">🇬🇧 EN</option>
+          </select>
+        </label>
+        <label class="top-select-wrap theme-select-wrap" aria-label="Theme">
+          <select id="theme-select" class="top-select">
+            <option value="auto" data-i18n="theme.auto">AUTO</option>
+            <option value="dark" data-i18n="theme.dark">CIEMNY</option>
+            <option value="light" data-i18n="theme.light">JASNY</option>
+          </select>
+        </label>
         <button id="settings-open" class="icon-btn" aria-label="Settings" title="Settings">⚙</button>
       </div>
     </header>
@@ -109,7 +124,7 @@
           <label class="setting-row">
             <div>
               <strong data-i18n="settings.autostart">Uruchamiaj przy starcie systemu</strong>
-              <small data-i18n="settings.autostartHelp">Font Builder uruchomi się automatycznie po zalogowaniu.</small>
+              <small data-i18n="settings.autostartHelp">vvFont uruchomi się automatycznie po zalogowaniu.</small>
             </div>
             <input id="setting-autostart" type="checkbox" />
           </label>
